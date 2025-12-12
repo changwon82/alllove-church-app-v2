@@ -97,19 +97,33 @@ export default function BibleReadingPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+        // 리프레시 토큰 에러 처리
+        if (
+          authError &&
+          (authError.message?.includes("Invalid Refresh Token") ||
+            authError.message?.includes("Refresh Token Not Found") ||
+            authError.status === 401)
+        ) {
+          await supabase.auth.signOut();
+          router.push("/login");
+          return;
+        }
 
-      // 관리자 권한 확인
+        if (!user) {
+          router.push("/login");
+          return;
+        }
+
+      // 관리자 권한 확인 및 사용자 정보 가져오기
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, full_name")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -120,8 +134,10 @@ export default function BibleReadingPage() {
       // 사용자 이름 가져오기
       if (profileData?.full_name) {
         setUserName(profileData.full_name);
-      } else if (user.email) {
+      } else if (user?.email) {
         setUserName(user.email);
+      } else if (user?.user_metadata?.full_name) {
+        setUserName(user.user_metadata.full_name);
       }
       setCurrentUserId(user.id);
 
@@ -215,6 +231,19 @@ export default function BibleReadingPage() {
       setRecords(recordsMap);
 
       setLoading(false);
+      } catch (err: any) {
+        // 리프레시 토큰 에러 처리
+        if (
+          err?.message?.includes("Invalid Refresh Token") ||
+          err?.message?.includes("Refresh Token Not Found")
+        ) {
+          await supabase.auth.signOut();
+          router.push("/login");
+        } else {
+          console.error("데이터 로드 에러:", err);
+          setLoading(false);
+        }
+      }
     };
 
     loadData();
@@ -296,11 +325,24 @@ export default function BibleReadingPage() {
   }, [selectedDate, videoUrls]);
 
   const saveRecord = async (date: string, video: boolean, reading: boolean) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (!user) return;
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user) return;
 
     // 체크 상태 저장
     const { error } = await supabase.from("bible_reading").upsert(
@@ -332,17 +374,42 @@ export default function BibleReadingPage() {
         video_url: videoUrls[date] || prev[date]?.video_url || null,
       },
     }));
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+      } else {
+        console.error("저장 에러:", err);
+        alert("저장 중 오류가 발생했습니다.");
+      }
+    }
   };
 
   const saveVideoUrl = async (date: string, videoUrl: string | null) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (!user || !isAdmin) {
-      alert("관리자만 영상 URL을 설정할 수 있습니다.");
-      return;
-    }
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user || !isAdmin) {
+        alert("관리자만 영상 URL을 설정할 수 있습니다.");
+        return;
+      }
 
     // 영상 URL 저장 (관리자 ID로 저장하여 모든 사용자에게 공통으로 적용)
     if (videoUrl) {
@@ -455,6 +522,18 @@ export default function BibleReadingPage() {
         video_url: videoUrl,
       },
     }));
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+      } else {
+        console.error("영상 URL 저장 에러:", err);
+        alert("영상 URL 저장 중 오류가 발생했습니다.");
+      }
+    }
   };
 
   // 일괄 업로드 텍스트 파싱
@@ -491,25 +570,36 @@ export default function BibleReadingPage() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user || !isAdmin) {
-      alert("관리자만 일괄 업로드할 수 있습니다.");
-      return;
-    }
-
-    const parsedData = parseBulkUploadText(bulkUploadText);
-    
-    if (parsedData.length === 0) {
-      alert("올바른 형식의 데이터가 없습니다.\n형식: 날짜,URL (예: 2024-01-01,https://www.youtube.com/watch?v=...)");
-      return;
-    }
-
-    setBulkUploadLoading(true);
-
     try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user || !isAdmin) {
+        alert("관리자만 일괄 업로드할 수 있습니다.");
+        return;
+      }
+
+      const parsedData = parseBulkUploadText(bulkUploadText);
+    
+      if (parsedData.length === 0) {
+        alert("올바른 형식의 데이터가 없습니다.\n형식: 날짜,URL (예: 2024-01-01,https://www.youtube.com/watch?v=...)");
+        return;
+      }
+
+      setBulkUploadLoading(true);
       let successCount = 0;
       let errorCount = 0;
       const errors: string[] = [];
@@ -598,8 +688,16 @@ export default function BibleReadingPage() {
         }
       }
     } catch (error: any) {
-      console.error("일괄 업로드 에러:", error);
-      alert(`일괄 업로드 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
+      if (
+        error?.message?.includes("Invalid Refresh Token") ||
+        error?.message?.includes("Refresh Token Not Found")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+      } else {
+        console.error("일괄 업로드 에러:", error);
+        alert(`일괄 업로드 중 오류가 발생했습니다: ${error.message || "알 수 없는 오류"}`);
+      }
     } finally {
       setBulkUploadLoading(false);
     }
@@ -631,74 +729,87 @@ export default function BibleReadingPage() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      alert("로그인이 필요합니다.");
-      return;
-    }
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
 
-    // 기존 댓글이 있는지 확인 (UNIQUE 제약 조건 때문에)
-    const { data: existingComment } = await supabase
-      .from("bible_comments")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("date", selectedDate)
-      .maybeSingle();
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
 
-    let commentData;
-    let commentError;
-
-    if (existingComment) {
-      // 기존 댓글이 있으면 업데이트
-      const { data, error } = await supabase
+      // 기존 댓글이 있는지 확인 (UNIQUE 제약 조건 때문에)
+      const { data: existingComment } = await supabase
         .from("bible_comments")
-        .update({
-          comment: newComment.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existingComment.id)
-        .select()
-        .single();
-      commentData = data;
-      commentError = error;
-    } else {
-      // 새 댓글 삽입
-      const { data, error } = await supabase
-        .from("bible_comments")
-        .insert({
-          user_id: user.id,
-          date: selectedDate,
-          comment: newComment.trim(),
-        })
-        .select()
-        .single();
-      commentData = data;
-      commentError = error;
-    }
-
-    if (commentError) {
-      console.error("댓글 저장 에러:", {
-        message: commentError.message,
-        details: commentError.details,
-        hint: commentError.hint,
-        code: commentError.code,
-      });
-      alert(`댓글 저장 중 오류가 발생했습니다: ${commentError.message || "알 수 없는 오류"}`);
-      return;
-    }
-
-    if (commentData) {
-      // 댓글 목록 다시 불러오기 (업데이트된 댓글 포함)
-      const { data: commentsData } = await supabase
-        .from("bible_comments")
-        .select("*")
+        .select("id")
+        .eq("user_id", user.id)
         .eq("date", selectedDate)
-        .order("created_at", { ascending: true });
+        .maybeSingle();
 
-      if (commentsData && commentsData.length > 0) {
+      let commentData;
+      let commentError;
+
+      if (existingComment) {
+        // 기존 댓글이 있으면 업데이트
+        const { data, error } = await supabase
+          .from("bible_comments")
+          .update({
+            comment: newComment.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingComment.id)
+          .select()
+          .single();
+        commentData = data;
+        commentError = error;
+      } else {
+        // 새 댓글 삽입
+        const { data, error } = await supabase
+          .from("bible_comments")
+          .insert({
+            user_id: user.id,
+            date: selectedDate,
+            comment: newComment.trim(),
+          })
+          .select()
+          .single();
+        commentData = data;
+        commentError = error;
+      }
+
+      if (commentError) {
+        console.error("댓글 저장 에러:", {
+          message: commentError.message,
+          details: commentError.details,
+          hint: commentError.hint,
+          code: commentError.code,
+        });
+        alert(`댓글 저장 중 오류가 발생했습니다: ${commentError.message || "알 수 없는 오류"}`);
+        return;
+      }
+
+      if (commentData) {
+        // 댓글 목록 다시 불러오기 (업데이트된 댓글 포함)
+        const { data: commentsData } = await supabase
+          .from("bible_comments")
+          .select("*")
+          .eq("date", selectedDate)
+          .order("created_at", { ascending: true });
+
+        if (commentsData && commentsData.length > 0) {
         // 사용자 정보 가져오기
         const userIds = [...new Set(commentsData.map((c: any) => c.user_id))];
         const { data: profilesData } = await supabase
@@ -729,18 +840,43 @@ export default function BibleReadingPage() {
             user_email: profile?.email || null,
           };
         });
-        setComments(commentsList);
+          setComments(commentsList);
+        }
+        setNewComment("");
       }
-      setNewComment("");
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+      } else {
+        console.error("댓글 저장 에러:", err);
+        alert("댓글 저장 중 오류가 발생했습니다.");
+      }
     }
   };
 
   const handleDeleteComment = async (commentId: string, commentUserId: string) => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (!user) return;
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user) return;
 
     // 자신의 댓글만 삭제 가능
     if (user.id !== commentUserId) {
@@ -761,6 +897,18 @@ export default function BibleReadingPage() {
     }
 
     setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+      } else {
+        console.error("댓글 삭제 에러:", err);
+        alert("댓글 삭제 중 오류가 발생했습니다.");
+      }
+    }
   };
 
   // 날짜 이동 함수
