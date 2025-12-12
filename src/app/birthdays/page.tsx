@@ -91,7 +91,7 @@ export default function BirthdaysPage() {
           return null;
         }
       })
-      .filter((b): b is BirthdayInfo => b !== null)
+      .filter((b): b is NonNullable<typeof b> => b !== null)
       .sort((a, b) => {
         if (viewMode === "thisMonth") {
           return a.birthDate.getDate() - b.birthDate.getDate();
