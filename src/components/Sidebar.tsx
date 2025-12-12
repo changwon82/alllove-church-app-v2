@@ -14,6 +14,7 @@ const getIcon = (label: string) => {
   const icons: Record<string, string> = {
     홈: "🏠",
     "내 프로필": "👤",
+    "성경일독365일": "📖",
     "회원 조회": "👥",
     연락처: "📞",
     "생일 관리": "🎂",
@@ -71,11 +72,12 @@ export default function Sidebar() {
   const menuItems: MenuItem[] = [
     { label: "홈", path: "/", icon: getIcon("홈") },
     { label: "내 프로필", path: "/profile", icon: getIcon("내 프로필") },
-    { label: "회원 조회", path: "/members", icon: getIcon("회원 조회") },
-    { label: "연락처", path: "/contacts", icon: getIcon("연락처") },
-    { label: "생일 관리", path: "/birthdays", icon: getIcon("생일 관리") },
+    { label: "성경일독365일", path: "/bible-reading", icon: getIcon("성경일독365일") },
     ...(isAdmin
       ? [
+          { label: "회원 조회", path: "/members", icon: getIcon("회원 조회") },
+          { label: "연락처", path: "/contacts", icon: getIcon("연락처") },
+          { label: "생일 관리", path: "/birthdays", icon: getIcon("생일 관리") },
           { label: "관리자페이지", path: "/admin", icon: getIcon("관리자페이지") },
           { label: "통계 대시보드", path: "/admin/stats", icon: getIcon("통계 대시보드") },
         ]

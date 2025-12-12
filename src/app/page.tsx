@@ -9,6 +9,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -20,11 +21,14 @@ export default function Home() {
         setUserEmail(session.user.email);
         const { data } = await supabase
           .from("profiles")
-          .select("full_name")
+          .select("full_name, role")
           .eq("id", session.user.id)
           .maybeSingle();
         if (data?.full_name) {
           setUserName(data.full_name);
+        }
+        if (data?.role === "admin") {
+          setIsAdmin(true);
         }
       }
     };
@@ -205,72 +209,110 @@ export default function Home() {
           marginBottom: 24,
         }}
       >
-        <div
-          onClick={() => router.push("/members")}
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            padding: "20px",
-            border: "1px solid #e5e7eb",
-            cursor: "pointer",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = "#3b82f6";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.15)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "#e5e7eb";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
-                회원 조회
-              </div>
-              <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
-                회원 목록을 조회하고 검색합니다
+        {/* 관리자 전용 카드 */}
+        {isAdmin && (
+          <>
+            <div
+              onClick={() => router.push("/members")}
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#3b82f6";
+                e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e5e7eb";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
+                    회원 조회
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+                    회원 목록을 조회하고 검색합니다
+                  </div>
+                </div>
+                <span style={{ fontSize: 24 }}>👥</span>
               </div>
             </div>
-            <span style={{ fontSize: 24 }}>👥</span>
-          </div>
-        </div>
 
-        <div
-          onClick={() => router.push("/contacts")}
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            padding: "20px",
-            border: "1px solid #e5e7eb",
-            cursor: "pointer",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = "#3b82f6";
-            e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.15)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "#e5e7eb";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
-                연락처
-              </div>
-              <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
-                회원 연락처를 확인합니다
+            <div
+              onClick={() => router.push("/contacts")}
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#3b82f6";
+                e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e5e7eb";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
+                    연락처
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+                    회원 연락처를 확인합니다
+                  </div>
+                </div>
+                <span style={{ fontSize: 24 }}>📞</span>
               </div>
             </div>
-            <span style={{ fontSize: 24 }}>📞</span>
-          </div>
-        </div>
 
+            <div
+              onClick={() => router.push("/birthdays")}
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                padding: "20px",
+                border: "1px solid #e5e7eb",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#3b82f6";
+                e.currentTarget.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e5e7eb";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
+                    생일 관리
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+                    생일자를 확인하고 관리합니다
+                  </div>
+                </div>
+                <span style={{ fontSize: 24 }}>🎂</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 모든 사용자에게 보이는 카드 */}
         <div
-          onClick={() => router.push("/birthdays")}
+          onClick={() => router.push("/bible-reading")}
           style={{
             backgroundColor: "#ffffff",
             borderRadius: 8,
@@ -291,13 +333,13 @@ export default function Home() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
-                생일 관리
+                성경일독365일
               </div>
               <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
-                생일자를 확인하고 관리합니다
+                매일 성경을 읽고 영상을 시청하세요
               </div>
             </div>
-            <span style={{ fontSize: 24 }}>🎂</span>
+            <span style={{ fontSize: 24 }}>📖</span>
           </div>
         </div>
 
