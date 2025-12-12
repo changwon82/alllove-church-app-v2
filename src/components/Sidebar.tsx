@@ -98,11 +98,11 @@ export default function Sidebar() {
           onClick={() => setIsOpen(!isOpen)}
           style={{
             position: "fixed",
-            top: 12,
-            left: 12,
+            top: 8,
+            left: 8,
             zIndex: 1001,
-            padding: "10px 12px",
-            borderRadius: 8,
+            padding: "8px 10px",
+            borderRadius: 6,
             border: "none",
             background: "#1f2937",
             color: "#ffffff",
@@ -111,9 +111,13 @@ export default function Sidebar() {
             alignItems: "center",
             justifyContent: "center",
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            width: 36,
+            height: 36,
+            minWidth: 36,
+            minHeight: 36,
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M3 12h18M3 6h18M3 18h18" />
           </svg>
         </button>
@@ -140,23 +144,24 @@ export default function Sidebar() {
         style={{
           position: "fixed",
           top: 0,
-          left: isMobile ? (isOpen ? 0 : "-240px") : 0,
-          width: 240,
+          left: isMobile ? (isOpen ? 0 : "-280px") : 0,
+          width: isMobile ? 280 : 240,
           height: "100vh",
           background: "#1f2937",
           zIndex: 999,
           transition: "left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          padding: "20px 0",
+          padding: isMobile ? "16px 0" : "20px 0",
           display: "flex",
           flexDirection: "column",
           boxShadow: "2px 0 8px rgba(0,0,0,0.1)",
+          maxWidth: isMobile ? "85vw" : "none",
         }}
       >
         {/* 헤더 */}
-        <div style={{ padding: "0 16px", marginBottom: 24 }}>
+        <div style={{ padding: isMobile ? "0 12px" : "0 16px", marginBottom: isMobile ? 20 : 24 }}>
           <h2
             style={{
-              fontSize: 18,
+              fontSize: isMobile ? 16 : 18,
               fontWeight: 700,
               color: "#ffffff",
               margin: 0,
@@ -168,7 +173,7 @@ export default function Sidebar() {
         </div>
 
         {/* 메뉴 */}
-        <nav style={{ flex: 1, padding: "0 8px", overflowY: "auto" }}>
+        <nav style={{ flex: 1, padding: isMobile ? "0 6px" : "0 8px", overflowY: "auto" }}>
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
@@ -182,11 +187,11 @@ export default function Sidebar() {
                 }}
                 style={{
                   width: "100%",
-                  padding: "12px 16px",
+                  padding: isMobile ? "10px 12px" : "12px 16px",
                   textAlign: "left",
                   background: isActive ? "#3b82f6" : "transparent",
                   color: isActive ? "#ffffff" : "#d1d5db",
-                  fontSize: 14,
+                  fontSize: isMobile ? 13 : 14,
                   fontWeight: isActive ? 600 : 400,
                   border: "none",
                   borderRadius: 8,
@@ -195,7 +200,7 @@ export default function Sidebar() {
                   marginBottom: 4,
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
+                  gap: isMobile ? 10 : 12,
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
@@ -210,32 +215,32 @@ export default function Sidebar() {
                   }
                 }}
               >
-                <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>{item.icon}</span>
-                {item.label}
+                <span style={{ fontSize: isMobile ? 15 : 16, width: isMobile ? 18 : 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
               </button>
             );
           })}
         </nav>
 
         {/* 로그아웃 버튼 */}
-        <div style={{ padding: "0 16px", borderTop: "1px solid #374151", paddingTop: 12 }}>
+        <div style={{ padding: isMobile ? "0 12px" : "0 16px", borderTop: "1px solid #374151", paddingTop: isMobile ? 10 : 12 }}>
           <button
             onClick={handleLogout}
             style={{
               width: "100%",
-              padding: "10px 16px",
+              padding: isMobile ? "8px 12px" : "10px 16px",
               borderRadius: 8,
               border: "none",
               background: "transparent",
               color: "#ef4444",
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
               fontWeight: 500,
               cursor: "pointer",
               transition: "all 0.15s ease",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 8,
+              gap: isMobile ? 6 : 8,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = "#7f1d1d";
@@ -244,7 +249,7 @@ export default function Sidebar() {
               e.currentTarget.style.background = "transparent";
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />

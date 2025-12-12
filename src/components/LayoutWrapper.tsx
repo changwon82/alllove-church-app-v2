@@ -81,8 +81,8 @@ export default function LayoutWrapper({
         style={{
           flex: 1,
           marginLeft: isMobile ? 0 : 240,
-          padding: isMobile ? "12px" : "20px",
-          transition: "margin-left 0.3s ease",
+          padding: isMobile ? "56px 12px 12px 12px" : "20px",
+          transition: "margin-left 0.3s ease, padding 0.3s ease",
           minHeight: "100vh",
         }}
       >
