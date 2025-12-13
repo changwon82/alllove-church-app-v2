@@ -634,12 +634,9 @@ export default function AttendancePage() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-          출석체크 통계
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", margin: 0 }}>
+          {userDepartment ? `${userDepartment} 출석체크` : "출석체크 통계"}
         </h1>
-        <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
-          이번 주일 ({sundayDate} ~ {currentWeekDates[6]})
-        </p>
       </div>
 
       {/* 주요 통계 카드 (관리자만) */}
@@ -688,12 +685,16 @@ export default function AttendancePage() {
           }}
         >
           <div style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-              {userDepartment} 출석체크
-            </h2>
-            <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
-              이번 주일 ({sundayDate && formatDate(sundayDate)})
-            </p>
+            {sundayDate && (() => {
+              const date = new Date(sundayDate);
+              const month = date.getMonth() + 1;
+              const day = date.getDate();
+              return (
+                <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                  이번 주일({month}/{day})
+                </h2>
+              );
+            })()}
           </div>
           {(() => {
             // 부서명 매핑
@@ -727,7 +728,7 @@ export default function AttendancePage() {
                       key={member.id}
                       onClick={() => toggleAttendance(member.id, sundayDate)}
                       style={{
-                        padding: "12px 20px",
+                        padding: "2px 0.5px",
                         borderRadius: 8,
                         border: `1px solid ${attended ? "#3b82f6" : "#e5e7eb"}`,
                         background: attended ? "#3b82f6" : "#ffffff",
