@@ -29,7 +29,7 @@ type Profile = {
   position: string | null;
 };
 
-const departments = ["유초등부", "유치부", "청소년부", "청년부"];
+const departments = ["유치부", "유초등부", "청소년부", "청년부"];
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -39,6 +39,9 @@ export default function AttendancePage() {
   const [records, setRecords] = useState<Record<string, Record<string, boolean>>>({});
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentWeekDates, setCurrentWeekDates] = useState<string[]>([]);
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
 
   // 이번 주일 날짜들 계산 (일요일 기준)
   useEffect(() => {
@@ -86,7 +89,7 @@ export default function AttendancePage() {
         // 권한 확인
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, attendance_permission")
+          .select("role, attendance_permission, department")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -96,6 +99,22 @@ export default function AttendancePage() {
         if (!hasAttendancePermission) {
           router.push("/");
           return;
+        }
+
+        setIsAdmin(isAdminUser);
+        
+        // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
+        const deptMapping: Record<string, string> = {
+          "아동부": "유치부",
+          "중고등부": "청소년부",
+        };
+        
+        // 사용자의 부서 정보 설정 (관리자가 아니면 해당 부서만 표시)
+        if (!isAdminUser && profile?.department) {
+          const mappedDept = deptMapping[profile.department] || profile.department;
+          setUserDepartment(mappedDept);
+        } else {
+          setUserDepartment(null);
         }
 
         setHasPermission(true);
@@ -360,61 +379,130 @@ export default function AttendancePage() {
         }}
       >
         <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>교회학교 출석현황</h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {departments.map((dept) => {
-            const deptStats = stats.byDepartment[dept];
-            const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+        <div style={{ display: "flex", flexDirection: "column", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+          {(() => {
+            // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
+            const deptMapping: Record<string, string> = {
+              "아동부": "유치부",
+              "중고등부": "청소년부",
+            };
+            
+            // 표시할 부서 목록 필터링 (관리자가 아니면 해당 부서만)
+            const displayDepartments = userDepartment 
+              ? departments.filter(dept => dept === userDepartment)
+              : departments;
+            
+            return displayDepartments.map((dept, index) => {
+              const deptStats = stats.byDepartment[dept];
+              const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+              
+              // 해당 부서의 명단 필터링
+              const deptMembers = members.filter((m) => {
+                const mappedDept = deptMapping[m.department || ""] || m.department;
+                return mappedDept === dept || m.department === dept;
+              }).sort((a, b) => a.name.localeCompare(b.name));
 
-            return (
-              <Link
-                key={dept}
-                href={`/attendance/${encodeURIComponent(dept)}`}
-                style={{
-                  padding: "12px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #e5e7eb",
-                  backgroundColor: "#ffffff",
-                  textDecoration: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  transition: "all 0.2s ease",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#3b82f6";
-                  e.currentTarget.style.backgroundColor = "#f0f9ff";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "#e5e7eb";
-                  e.currentTarget.style.backgroundColor = "#ffffff";
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1f2937", minWidth: 70 }}>
-                    {dept}
+              // 관리자는 토글 가능, 부서 담당자는 항상 표시
+              const isExpanded = isAdmin ? expandedDepartments.has(dept) : true;
+              
+              const handleToggle = (e: React.MouseEvent) => {
+                if (!isAdmin) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const newExpanded = new Set(expandedDepartments);
+                if (newExpanded.has(dept)) {
+                  newExpanded.delete(dept);
+                } else {
+                  newExpanded.add(dept);
+                }
+                setExpandedDepartments(newExpanded);
+              };
+
+              return (
+                <div key={dept}>
+                  <div
+                    onClick={handleToggle}
+                    style={{
+                      padding: "12px 16px",
+                      backgroundColor: "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 16,
+                      borderBottom: index < displayDepartments.length - 1 ? "1px solid #e5e7eb" : "none",
+                      cursor: isAdmin ? "pointer" : "default",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (isAdmin) {
+                        e.currentTarget.style.backgroundColor = "#f0f9ff";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isAdmin) {
+                        e.currentTarget.style.backgroundColor = "#ffffff";
+                      }
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#1f2937", minWidth: 70 }}>
+                        {dept}
+                      </div>
+                      <div style={{ fontSize: 14, color: "#6b7280", minWidth: 0, flex: 1 }}>
+                        {deptStats.manager ? (
+                          <>
+                            (담당: {deptStats.manager.name}
+                            {deptStats.manager.position && ` ${deptStats.manager.position}`})
+                          </>
+                        ) : (
+                          <span style={{ color: "#9ca3af" }}>-</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 14, color: "#1f2937", minWidth: 80 }}>
+                        {deptStats.attended}/{deptStats.total}명
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#10b981", minWidth: 60, textAlign: "right" }}>
+                        {rate}%
+                      </div>
+                      {isAdmin && (
+                        <div style={{ fontSize: 14, color: "#9ca3af", marginLeft: 8 }}>
+                          {isExpanded ? "▼" : "▶"}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 14, color: "#6b7280", minWidth: 0, flex: 1 }}>
-                    {deptStats.manager ? (
-                      <>
-                        {deptStats.manager.name}
-                        {deptStats.manager.position && ` ${deptStats.manager.position}`}
-                      </>
-                    ) : (
-                      <span style={{ color: "#9ca3af" }}>-</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 14, color: "#1f2937", minWidth: 80 }}>
-                    {deptStats.attended}/{deptStats.total}명
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#10b981", minWidth: 60, textAlign: "right" }}>
-                    {rate}%
-                  </div>
+                  {isExpanded && (
+                    <div style={{ backgroundColor: "#f9fafb", borderTop: "1px solid #e5e7eb", padding: "12px 16px" }}>
+                      <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8, fontWeight: 500 }}>
+                        명단 ({deptMembers.length}명)
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {deptMembers.map((member) => {
+                          const sundayDate = currentWeekDates[0];
+                          const isAttended = records[member.id]?.[sundayDate] === true;
+                          return (
+                            <div
+                              key={member.id}
+                              style={{
+                                padding: "6px 12px",
+                                borderRadius: 6,
+                                backgroundColor: isAttended ? "#d1fae5" : "#ffffff",
+                                border: `1px solid ${isAttended ? "#10b981" : "#e5e7eb"}`,
+                                fontSize: 13,
+                                color: "#1f2937",
+                              }}
+                            >
+                              {member.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </Link>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
     </div>
