@@ -29,6 +29,7 @@ export default function AttendanceMembersPage() {
     name: "",
     gender: "",
     birth_date: "",
+    department: "",
   });
 
   useEffect(() => {
