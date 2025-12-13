@@ -159,15 +159,15 @@ export default function Sidebar() {
           background: "#1f2937",
           zIndex: 999,
           transition: "left 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          padding: isMobile ? "16px 0" : "20px 0",
           display: "flex",
           flexDirection: "column",
           boxShadow: "2px 0 8px rgba(0,0,0,0.1)",
           maxWidth: isMobile ? "85vw" : "none",
+          overflow: "hidden",
         }}
       >
         {/* 헤더 */}
-        <div style={{ padding: isMobile ? "0 12px" : "0 16px", marginBottom: isMobile ? 20 : 24 }}>
+        <div style={{ padding: isMobile ? "16px 12px" : "20px 16px", flexShrink: 0 }}>
           <h2
             style={{
               fontSize: isMobile ? 16 : 18,
@@ -182,7 +182,7 @@ export default function Sidebar() {
         </div>
 
         {/* 메뉴 */}
-        <nav style={{ flex: 1, padding: isMobile ? "0 6px" : "0 8px", overflowY: "auto" }}>
+        <nav style={{ flex: 1, padding: isMobile ? "0 6px" : "0 8px", overflowY: "auto", minHeight: 0 }}>
           {menuItems.map((item) => {
             const isActive = pathname === item.path;
             return (
@@ -232,7 +232,7 @@ export default function Sidebar() {
         </nav>
 
         {/* 로그아웃 버튼 */}
-        <div style={{ padding: isMobile ? "0 12px" : "0 16px", borderTop: "1px solid #374151", paddingTop: isMobile ? 10 : 12 }}>
+        <div style={{ padding: isMobile ? "12px" : "16px", borderTop: "1px solid #374151", flexShrink: 0 }}>
           <button
             onClick={handleLogout}
             style={{
