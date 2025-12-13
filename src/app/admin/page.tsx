@@ -36,6 +36,9 @@ export default function AdminPage() {
     errors: Array<{ row: number; email: string; error: string }>;
   } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showMenuOrder, setShowMenuOrder] = useState(false);
+  const [menuOrder, setMenuOrder] = useState<string[]>([]);
+  const [savingMenuOrder, setSavingMenuOrder] = useState(false);
 
   const loadAll = async () => {
     setLoading(true);
@@ -91,6 +94,20 @@ export default function AdminPage() {
 
       setProfiles((data ?? []) as Profile[]);
       setStatus(null);
+
+      // 메뉴 순서 불러오기
+      const { data: menuOrderData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "admin_menu_order")
+        .maybeSingle();
+
+      if (menuOrderData?.value) {
+        setMenuOrder(menuOrderData.value as string[]);
+      } else {
+        // 기본 순서
+        setMenuOrder(["회원 조회", "연락처", "생일 관리", "관리자페이지", "통계 대시보드"]);
+      }
     } finally {
       setLoading(false);
     }
@@ -509,6 +526,159 @@ export default function AdminPage() {
           관리자 페이지
         </h1>
         <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>회원 관리 및 시스템 설정</p>
+      </div>
+
+      {/* 메뉴 순서 설정 */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "12px",
+          backgroundColor: "#ffffff",
+          borderRadius: 8,
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", margin: 0 }}>관리자 메뉴 순서 설정</h2>
+          <button
+            onClick={() => setShowMenuOrder(!showMenuOrder)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+              color: "#374151",
+              fontWeight: 500,
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            {showMenuOrder ? "▲ 접기" : "▼ 펼치기"}
+          </button>
+        </div>
+        {showMenuOrder && (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              {menuOrder.map((menuLabel, index) => {
+                const menuPathMap: Record<string, string> = {
+                  "회원 조회": "/members",
+                  연락처: "/contacts",
+                  "생일 관리": "/birthdays",
+                  관리자페이지: "/admin",
+                  "통계 대시보드": "/admin/stats",
+                };
+                return (
+                  <div
+                    key={menuLabel}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 12px",
+                      backgroundColor: "#f9fafb",
+                      borderRadius: 6,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span style={{ fontSize: 12, color: "#6b7280", minWidth: 24 }}>{index + 1}</span>
+                    <span style={{ fontSize: 13, color: "#1f2937", flex: 1 }}>{menuLabel}</span>
+                    <button
+                      onClick={() => {
+                        if (index > 0) {
+                          const newOrder = [...menuOrder];
+                          [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+                          setMenuOrder(newOrder);
+                        }
+                      }}
+                      disabled={index === 0}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        border: "none",
+                        background: index === 0 ? "#e5e7eb" : "#3b82f6",
+                        color: index === 0 ? "#9ca3af" : "white",
+                        fontSize: 12,
+                        cursor: index === 0 ? "not-allowed" : "pointer",
+                        opacity: index === 0 ? 0.5 : 1,
+                      }}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (index < menuOrder.length - 1) {
+                          const newOrder = [...menuOrder];
+                          [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                          setMenuOrder(newOrder);
+                        }
+                      }}
+                      disabled={index === menuOrder.length - 1}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        border: "none",
+                        background: index === menuOrder.length - 1 ? "#e5e7eb" : "#3b82f6",
+                        color: index === menuOrder.length - 1 ? "#9ca3af" : "white",
+                        fontSize: 12,
+                        cursor: index === menuOrder.length - 1 ? "not-allowed" : "pointer",
+                        opacity: index === menuOrder.length - 1 ? 0.5 : 1,
+                      }}
+                    >
+                      ↓
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={async () => {
+                setSavingMenuOrder(true);
+                try {
+                  const {
+                    data: { user },
+                  } = await supabase.auth.getUser();
+                  if (!user) return;
+
+                  const { error } = await supabase
+                    .from("app_settings")
+                    .upsert(
+                      {
+                        key: "admin_menu_order",
+                        value: menuOrder,
+                        updated_by: user.id,
+                        updated_at: new Date().toISOString(),
+                      },
+                      {
+                        onConflict: "key",
+                      }
+                    );
+
+                  if (error) {
+                    console.error("메뉴 순서 저장 에러:", error);
+                    alert("메뉴 순서 저장 중 오류가 발생했습니다.");
+                  } else {
+                    alert("메뉴 순서가 저장되었습니다.");
+                  }
+                } finally {
+                  setSavingMenuOrder(false);
+                }
+              }}
+              disabled={savingMenuOrder}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 6,
+                border: "none",
+                background: savingMenuOrder ? "#9ca3af" : "#10b981",
+                color: "white",
+                fontWeight: 500,
+                fontSize: 13,
+                cursor: savingMenuOrder ? "not-allowed" : "pointer",
+              }}
+            >
+              {savingMenuOrder ? "저장 중..." : "순서 저장"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 필터/검색 */}
