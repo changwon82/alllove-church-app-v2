@@ -14,6 +14,7 @@ type Profile = {
   approved: boolean | null;
   phone: string | null;
   birth: string | null;
+  gender: string | null;
 };
 
 export default function ProfilePage() {
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const [birth, setBirth] = useState("");
   const [position, setPosition] = useState("");
   const [department, setDepartment] = useState("");
+  const [gender, setGender] = useState("");
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -62,6 +64,7 @@ export default function ProfilePage() {
       setPhone(data.phone || "");
       setPosition(data.position || "");
       setDepartment(data.department || "");
+      setGender(data.gender || "");
 
       if (data.birth) {
         try {
@@ -96,6 +99,7 @@ export default function ProfilePage() {
           birth: birth || null,
           position: position.trim() || null,
           department: department.trim() || null,
+          gender: gender || null,
         })
         .eq("id", profile.id);
 
@@ -397,6 +401,33 @@ export default function ProfilePage() {
             ) : (
               <div style={{ padding: "8px 10px", fontSize: 13, color: "#1f2937" }}>
                 {profile.birth ? new Date(profile.birth).toLocaleDateString("ko-KR") : "-"}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
+              성별
+            </label>
+            {editing ? (
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 13,
+                }}
+              >
+                <option value="">선택 안 함</option>
+                <option value="남">남</option>
+                <option value="여">여</option>
+              </select>
+            ) : (
+              <div style={{ padding: "8px 10px", fontSize: 13, color: "#1f2937" }}>
+                {profile.gender || "-"}
               </div>
             )}
           </div>

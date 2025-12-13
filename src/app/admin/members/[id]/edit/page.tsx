@@ -106,6 +106,8 @@ export default function EditMemberPage() {
         approved: approved,
         phone: phone.trim() || null,
         birth: birth ? birth : null,
+        // 부서가 선택되면 자동으로 출석체크 권한 부여
+        attendance_permission: department.trim() !== "" ? true : null,
       };
 
       const { error } = await supabase

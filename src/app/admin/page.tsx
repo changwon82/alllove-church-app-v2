@@ -12,6 +12,7 @@ type Profile = {
   position: string | null;
   department: string | null;
   approved: boolean | null;
+  attendance_permission: boolean | null;
 };
 
 type FilterMode = "all" | "approved" | "pending";
@@ -79,7 +80,7 @@ export default function AdminPage() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, full_name, role, position, department, approved")
+        .select("id, email, full_name, role, position, department, approved, attendance_permission")
         .order("full_name", { ascending: true });
 
       if (error) {
@@ -127,6 +128,11 @@ export default function AdminPage() {
   }, [profiles, filterMode, search]);
 
   const updateLocal = (id: string, patch: Partial<Profile>) => {
+    // 부서가 선택되면 자동으로 출석체크 권한 부여
+    if (patch.department && patch.department.trim() !== "") {
+      patch.attendance_permission = true;
+    }
+    
     setProfiles((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
     );
@@ -139,6 +145,7 @@ export default function AdminPage() {
       position: p.position,
       department: p.department,
       full_name: p.full_name,
+      attendance_permission: p.attendance_permission,
     };
 
     const { error } = await supabase.from("profiles").update(payload).eq("id", p.id);
@@ -160,6 +167,7 @@ export default function AdminPage() {
     department?: string;
     phone?: string;
     birth?: string;
+    gender?: string;
     role?: string;
     approved?: boolean;
   }> => {
@@ -176,6 +184,7 @@ export default function AdminPage() {
       department?: string;
       phone?: string;
       birth?: string;
+      gender?: string;
       role?: string;
       approved?: boolean;
     }> = [];
@@ -196,8 +205,9 @@ export default function AdminPage() {
       const department = parts[4] || undefined;
       const phone = parts[5] || undefined;
       const birth = parts[6] || undefined;
-      const role = parts[7] || "member";
-      const approved = parts[8]?.toLowerCase() === "true" || parts[8] === "1" || false;
+      const gender = parts[7] || undefined;
+      const role = parts[8] || "member";
+      const approved = parts[9]?.toLowerCase() === "true" || parts[9] === "1" || false;
 
       if (!full_name || !email) continue;
 
@@ -209,6 +219,7 @@ export default function AdminPage() {
         department,
         phone,
         birth,
+        gender,
         role,
         approved,
       });
@@ -241,52 +252,143 @@ export default function AdminPage() {
 
     for (let i = 0; i < parsed.length; i++) {
       const user = parsed[i];
+      
+      // 요청 속도 제한을 피하기 위해 각 요청 사이에 지연 추가 (200ms)
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
       try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // 먼저 profiles 테이블에서 이메일로 기존 사용자 확인
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("id, email")
+          .eq("email", user.email)
+          .maybeSingle();
+        
+        let userId: string | null = null;
+        
+        if (existingProfile) {
+          // 이미 등록된 사용자 - 프로필만 업데이트
+          userId = existingProfile.id;
+        } else {
+          // 새 사용자 생성 시도
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: user.email,
+            password: user.password,
+          });
+
+          if (authError) {
+            // "User already registered" 에러인 경우 profiles 테이블 다시 확인
+            if (authError.message.includes("already registered") || 
+                authError.message.includes("already exists") ||
+                authError.message.includes("rate limit")) {
+              
+              // rate limit 에러인 경우 잠시 대기 후 다시 시도
+              if (authError.message.includes("rate limit")) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                // profiles 테이블에서 확인
+                const { data: retryProfile } = await supabase
+                  .from("profiles")
+                  .select("id, email")
+                  .eq("email", user.email)
+                  .maybeSingle();
+                
+                if (retryProfile) {
+                  userId = retryProfile.id;
+                } else {
+                  results.failed++;
+                  results.errors.push({
+                    row: i + 1,
+                    email: user.email,
+                    error: "요청 속도 제한에 걸렸습니다. 나중에 다시 시도해주세요.",
+                  });
+                  continue;
+                }
+              } else {
+                // 이미 등록된 사용자지만 profiles에 없는 경우 (드문 경우)
+                results.failed++;
+                results.errors.push({
+                  row: i + 1,
+                  email: user.email,
+                  error: "이미 등록된 사용자입니다.",
+                });
+                continue;
+              }
+            } else {
+              results.failed++;
+              results.errors.push({
+                row: i + 1,
+                email: user.email,
+                error: authError.message,
+              });
+              continue;
+            }
+          } else if (!authData?.user) {
+            results.failed++;
+            results.errors.push({
+              row: i + 1,
+              email: user.email,
+              error: "사용자 생성 실패",
+            });
+            continue;
+          } else {
+            userId = authData.user.id;
+          }
+        }
+
+        if (!userId) {
+          results.failed++;
+          results.errors.push({
+            row: i + 1,
+            email: user.email,
+            error: "사용자 ID를 찾을 수 없습니다.",
+          });
+          continue;
+        }
+
+        // 프로필 데이터 준비
+        const profileData = {
+          id: userId,
           email: user.email,
-          password: user.password,
-        });
-
-        if (authError) {
-          results.failed++;
-          results.errors.push({
-            row: i + 1,
-            email: user.email,
-            error: authError.message,
-          });
-          continue;
-        }
-
-        if (!authData.user) {
-          results.failed++;
-          results.errors.push({
-            row: i + 1,
-            email: user.email,
-            error: "사용자 생성 실패",
-          });
-          continue;
-        }
-
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: authData.user.id,
-          email: authData.user.email,
           full_name: user.full_name,
           role: user.role || "member",
           position: user.position || null,
           department: user.department || null,
           phone: user.phone || null,
           birth: user.birth || null,
+          gender: user.gender || null,
           approved: user.approved || false,
-        });
+        };
 
-        if (profileError) {
-          results.failed++;
-          results.errors.push({
-            row: i + 1,
-            email: user.email,
-            error: profileError.message,
-          });
-          continue;
+        if (existingProfile) {
+          // 프로필 업데이트 (upsert 사용)
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .upsert(profileData, { onConflict: "id" });
+
+          if (profileError) {
+            results.failed++;
+            results.errors.push({
+              row: i + 1,
+              email: user.email,
+              error: profileError.message,
+            });
+            continue;
+          }
+        } else {
+          // 새 프로필 생성
+          const { error: profileError } = await supabase.from("profiles").insert(profileData);
+
+          if (profileError) {
+            results.failed++;
+            results.errors.push({
+              row: i + 1,
+              email: user.email,
+              error: profileError.message,
+            });
+            continue;
+          }
         }
 
         results.success++;
@@ -564,10 +666,10 @@ export default function AdminPage() {
           >
             <div style={{ fontWeight: 600, marginBottom: 6 }}>입력 형식:</div>
             <div style={{ fontFamily: "monospace", fontSize: 11, marginBottom: 8 }}>
-              이름,이메일,비밀번호,직분,부서,전화번호,생년월일,권한,승인여부
+              이름,이메일,비밀번호,직분,부서,전화번호,생년월일,성별,권한,승인여부
             </div>
             <div style={{ fontSize: 11 }}>
-              • 필수: 이름, 이메일 | 비밀번호 없으면 자동 생성 | 권한: member/leader/admin (기본: member) |
+              • 필수: 이름, 이메일 | 비밀번호 없으면 자동 생성 | 성별: 남/여 | 권한: member/leader/admin (기본: member) |
               승인여부: true/1 또는 false/0 (기본: false)
             </div>
           </div>
@@ -759,8 +861,21 @@ export default function AdminPage() {
                     borderBottom: "1px solid #e5e7eb",
                     whiteSpace: "nowrap",
                   }}
-                >
+                  >
                   권한
+                </th>
+                <th
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: 12,
+                    borderBottom: "1px solid #e5e7eb",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  출석체크 권한
                 </th>
                 <th
                   style={{
@@ -907,6 +1022,37 @@ export default function AdminPage() {
                   </td>
 
                   <td style={{ padding: "10px 12px" }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={p.attendance_permission === true}
+                        onChange={(e) => updateLocal(p.id, { attendance_permission: e.target.checked })}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          cursor: "pointer",
+                          accentColor: "#3b82f6",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: p.attendance_permission ? "#10b981" : "#9ca3af",
+                        }}
+                      >
+                        {p.attendance_permission ? "✓" : "✗"}
+                      </span>
+                    </label>
+                  </td>
+
+                  <td style={{ padding: "10px 12px" }}>
                     <input
                       value={p.position ?? ""}
                       onChange={(e) => updateLocal(p.id, { position: e.target.value })}
@@ -922,18 +1068,35 @@ export default function AdminPage() {
                   </td>
 
                   <td style={{ padding: "10px 12px" }}>
-                    <input
+                    <select
                       value={p.department ?? ""}
-                      onChange={(e) => updateLocal(p.id, { department: e.target.value })}
+                      onChange={(e) => {
+                        const newDepartment = e.target.value;
+                        updateLocal(p.id, { 
+                          department: newDepartment,
+                          // 부서가 선택되면 자동으로 출석체크 권한 부여
+                          attendance_permission: newDepartment.trim() !== "" ? true : p.attendance_permission
+                        });
+                      }}
                       style={{
                         width: "100%",
                         padding: "6px 8px",
                         borderRadius: 4,
                         border: "1px solid #e5e7eb",
                         fontSize: 12,
+                        backgroundColor: "white",
+                        cursor: "pointer",
                       }}
-                      placeholder="부서"
-                    />
+                    >
+                      <option value="">선택 안 함</option>
+                      <option value="유초등부">유초등부</option>
+                      <option value="아동부">아동부</option>
+                      <option value="중고등부">중고등부</option>
+                      <option value="청년부">청년부</option>
+                      <option value="장년부">장년부</option>
+                      <option value="찬양팀">찬양팀</option>
+                      <option value="안내팀">안내팀</option>
+                    </select>
                   </td>
 
                   <td style={{ padding: "10px 12px" }}>

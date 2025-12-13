@@ -20,6 +20,7 @@ const getIcon = (label: string) => {
     "생일 관리": "🎂",
     관리자페이지: "⚙️",
     "통계 대시보드": "📊",
+    "출석체크": "✅",
   };
   return icons[label] || "•";
 };
@@ -29,6 +30,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hasAttendancePermission, setHasAttendancePermission] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -39,10 +41,12 @@ export default function Sidebar() {
       if (user) {
         const { data } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, attendance_permission")
           .eq("id", user.id)
           .maybeSingle();
-        setIsAdmin(data?.role === "admin");
+        const isAdminUser = data?.role === "admin";
+        setIsAdmin(isAdminUser);
+        setHasAttendancePermission(isAdminUser || data?.attendance_permission === true);
       }
     };
     checkAdmin();
@@ -73,6 +77,9 @@ export default function Sidebar() {
     { label: "홈", path: "/", icon: getIcon("홈") },
     { label: "내 프로필", path: "/profile", icon: getIcon("내 프로필") },
     { label: "성경일독365일", path: "/bible-reading", icon: getIcon("성경일독365일") },
+    ...(hasAttendancePermission
+      ? [{ label: "출석체크", path: "/attendance", icon: getIcon("출석체크") }]
+      : []),
     ...(isAdmin
       ? [
           { label: "회원 조회", path: "/members", icon: getIcon("회원 조회") },
@@ -101,7 +108,7 @@ export default function Sidebar() {
             top: 8,
             left: 8,
             zIndex: 1001,
-            padding: "8px 10px",
+            padding: "8px 12px",
             borderRadius: 6,
             border: "none",
             background: "#1f2937",
@@ -109,17 +116,19 @@ export default function Sidebar() {
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
+            gap: 8,
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-            width: 36,
             height: 36,
-            minWidth: 36,
-            minHeight: 36,
+            maxWidth: "calc(100vw - 16px)",
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0 }}>
             <path d="M3 12h18M3 6h18M3 18h18" />
           </svg>
+          <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            교회 관리 시스템
+          </span>
         </button>
       )}
 
