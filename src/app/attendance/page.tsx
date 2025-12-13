@@ -384,7 +384,7 @@ export default function AttendancePage() {
                     {deptStats.manager && (
                       <div style={{ fontSize: 12, color: "#9ca3af" }}>
                         담당: {deptStats.manager.name}
-                        {deptStats.manager.position && ` (${deptStats.manager.position})`}
+                        {deptStats.manager.position && ` ${deptStats.manager.position}`}
                       </div>
                     )}
                   </div>
