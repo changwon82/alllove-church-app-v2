@@ -13,13 +13,15 @@ type AttendanceMember = {
   created_at: string;
 };
 
-const departments = ["유초등부", "아동부", "중고등부", "청년부", "장년부", "찬양팀", "안내팀"];
+const departments = ["유치부", "유초등부", "청소년부", "청년부"];
 
 export default function AttendanceMembersPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -59,7 +61,7 @@ export default function AttendanceMembersPage() {
         // 권한 확인
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, attendance_permission")
+          .select("role, attendance_permission, department")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -74,8 +76,25 @@ export default function AttendanceMembersPage() {
         setIsAdmin(isAdminUser);
         setHasPermission(true);
 
+        // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
+        const deptMapping: Record<string, string> = {
+          "아동부": "유치부",
+          "중고등부": "청소년부",
+        };
+
+        // 사용자의 부서 정보 설정
+        if (!isAdminUser && profile?.department) {
+          const mappedDept = deptMapping[profile.department] || profile.department;
+          setUserDepartment(mappedDept);
+        } else {
+          setUserDepartment(null);
+        }
+
         // 출석체크 대상자 목록 불러오기
-        await loadMembers();
+        const userDept = !isAdminUser && profile?.department 
+          ? (deptMapping[profile.department] || profile.department)
+          : null;
+        await loadMembers(isAdminUser, userDept);
 
         setLoading(false);
       } catch (err: any) {
@@ -87,7 +106,14 @@ export default function AttendanceMembersPage() {
     loadData();
   }, [router]);
 
-  const loadMembers = async () => {
+  // 부서 탭 변경 시 멤버 목록 다시 로드
+  useEffect(() => {
+    if (!loading && hasPermission) {
+      loadMembers(isAdmin, isAdmin ? selectedDepartment : userDepartment);
+    }
+  }, [selectedDepartment]);
+
+  const loadMembers = async (isAdminUser: boolean = isAdmin, department: string | null = null) => {
     const { data: membersData, error: membersError } = await supabase
       .from("attendance_members")
       .select("*")
@@ -95,9 +121,30 @@ export default function AttendanceMembersPage() {
 
     if (membersError) {
       console.error("출석체크 대상자 조회 에러:", membersError);
-    } else {
-      setMembers((membersData as AttendanceMember[]) || []);
+      setMembers([]);
+      return;
     }
+
+    let filteredMembers = (membersData as AttendanceMember[]) || [];
+
+    // 필터링할 부서 결정 (부서 담당자는 userDepartment, 관리자는 selectedDepartment 또는 null)
+    const filterDepartment = isAdminUser ? department : (userDepartment || department);
+
+    if (filterDepartment) {
+      // 부서명 매핑
+      const deptMapping: Record<string, string> = {
+        "아동부": "유치부",
+        "중고등부": "청소년부",
+      };
+
+      // 매핑된 부서명과 원본 부서명 모두 필터링
+      filteredMembers = filteredMembers.filter((m) => {
+        const mappedDept = deptMapping[m.department || ""] || m.department;
+        return mappedDept === filterDepartment || m.department === filterDepartment;
+      });
+    }
+
+    setMembers(filteredMembers);
   };
 
   const handleAdd = () => {
@@ -178,7 +225,7 @@ export default function AttendanceMembersPage() {
         }
       }
 
-      await loadMembers();
+      await loadMembers(isAdmin, isAdmin ? selectedDepartment : userDepartment);
       handleCancel();
       alert(editingId ? "수정되었습니다." : "추가되었습니다.");
     } catch (err: any) {
@@ -203,7 +250,7 @@ export default function AttendanceMembersPage() {
         return;
       }
 
-      await loadMembers();
+      await loadMembers(isAdmin, isAdmin ? selectedDepartment : userDepartment);
       alert("삭제되었습니다.");
     } catch (err: any) {
       console.error("삭제 에러:", err);
@@ -266,9 +313,11 @@ export default function AttendanceMembersPage() {
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-            출석체크 대상자 관리
+            명단관리
           </h1>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>출석체크할 대상자를 추가, 수정, 삭제합니다</p>
+          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+            {userDepartment ? `${userDepartment} 부서 명단 관리` : "출석체크할 대상자를 추가, 수정, 삭제합니다"}
+          </p>
         </div>
         <button
           onClick={handleAdd}
@@ -287,6 +336,45 @@ export default function AttendanceMembersPage() {
           추가
         </button>
       </div>
+
+      {/* 관리자용 부서별 탭 */}
+      {isAdmin && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <button
+            onClick={() => setSelectedDepartment(null)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: selectedDepartment === null ? "#3b82f6" : "#ffffff",
+              color: selectedDepartment === null ? "#ffffff" : "#374151",
+              fontWeight: 500,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            전체
+          </button>
+          {departments.map((dept) => (
+            <button
+              key={dept}
+              onClick={() => setSelectedDepartment(dept)}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                background: selectedDepartment === dept ? "#3b82f6" : "#ffffff",
+                color: selectedDepartment === dept ? "#ffffff" : "#374151",
+                fontWeight: 500,
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              {dept}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 추가/수정 폼 */}
       {showAddForm && (
@@ -435,6 +523,17 @@ export default function AttendanceMembersPage() {
                 <th
                   style={{
                     padding: "12px",
+                    textAlign: "center",
+                    fontWeight: 600,
+                    color: "#374151",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  부서
+                </th>
+                <th
+                  style={{
+                    padding: "12px",
                     textAlign: "left",
                     fontWeight: 600,
                     color: "#374151",
@@ -463,17 +562,6 @@ export default function AttendanceMembersPage() {
                     borderBottom: "1px solid #e5e7eb",
                   }}
                 >
-                  생년월일
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                  }}
-                >
                   나이
                 </th>
                 <th
@@ -485,7 +573,7 @@ export default function AttendanceMembersPage() {
                     borderBottom: "1px solid #e5e7eb",
                   }}
                 >
-                  부서
+                  생년월일
                 </th>
                 <th
                   style={{
@@ -518,20 +606,28 @@ export default function AttendanceMembersPage() {
               ) : (
                 members.map((member) => {
                   const age = calculateAge(member.birth_date);
+                  // 부서명 매핑
+                  const deptMapping: Record<string, string> = {
+                    "아동부": "유치부",
+                    "중고등부": "청소년부",
+                  };
+                  const displayDepartment = member.department 
+                    ? (deptMapping[member.department] || member.department)
+                    : null;
                   return (
                     <tr key={member.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
+                        {displayDepartment || "-"}
+                      </td>
                       <td style={{ padding: "12px", fontWeight: 500, color: "#1f2937" }}>{member.name}</td>
                       <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
                         {member.gender || "-"}
                       </td>
                       <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
                         {age !== null ? `${age}세` : "-"}
                       </td>
                       <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {member.department || "-"}
+                        {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
                       </td>
                       <td style={{ padding: "12px", textAlign: "center" }}>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>

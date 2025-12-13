@@ -285,13 +285,10 @@ export default function EditMemberPage() {
               }}
             >
               <option value="">선택 안 함</option>
+              <option value="유치부">유치부</option>
               <option value="유초등부">유초등부</option>
-              <option value="아동부">아동부</option>
-              <option value="중고등부">중고등부</option>
+              <option value="청소년부">청소년부</option>
               <option value="청년부">청년부</option>
-              <option value="장년부">장년부</option>
-              <option value="찬양팀">찬양팀</option>
-              <option value="안내팀">안내팀</option>
             </select>
           </div>
 

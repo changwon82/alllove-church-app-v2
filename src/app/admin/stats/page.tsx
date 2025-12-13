@@ -280,6 +280,30 @@ export default function StatsPage() {
                     borderBottom: "1px solid #e5e7eb",
                   }}
                 >
+                  부서
+                </th>
+                <th
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: 12,
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  직분
+                </th>
+                <th
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontWeight: 600,
+                    color: "#374151",
+                    fontSize: 12,
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
                   가입일
                 </th>
                 <th
@@ -303,6 +327,12 @@ export default function StatsPage() {
                     {member.full_name || "-"}
                   </td>
                   <td style={{ padding: "10px 12px", color: "#6b7280", fontSize: 12 }}>{member.email || "-"}</td>
+                  <td style={{ padding: "10px 12px", color: "#6b7280", fontSize: 12 }}>
+                    {member.department || "-"}
+                  </td>
+                  <td style={{ padding: "10px 12px", color: "#6b7280", fontSize: 12 }}>
+                    {member.position || "-"}
+                  </td>
                   <td style={{ padding: "10px 12px", color: "#6b7280", fontSize: 12 }}>
                     {member.created_at ? new Date(member.created_at).toLocaleDateString("ko-KR") : "-"}
                   </td>

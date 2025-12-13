@@ -42,6 +42,25 @@ export default function AttendancePage() {
   const [userDepartment, setUserDepartment] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [expandedDepartments, setExpandedDepartments] = useState<Set<string>>(new Set());
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [membersForModal, setMembersForModal] = useState<AttendanceMember[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [bulkInput, setBulkInput] = useState("");
+  const [savingMember, setSavingMember] = useState(false);
+  const [addMode, setAddMode] = useState<"single" | "bulk">("single");
+  const [singleFormData, setSingleFormData] = useState({
+    name: "",
+    gender: "",
+    birth_date: "",
+  });
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    gender: "",
+    birth_date: "",
+    department: "",
+  });
+  const [selectedDepartmentInModal, setSelectedDepartmentInModal] = useState<string | null>(null);
 
   // 이번 주일 날짜들 계산 (일요일 기준)
   useEffect(() => {
@@ -272,6 +291,310 @@ export default function AttendancePage() {
     return `${month}/${day} (${weekday})`;
   };
 
+  const toggleAttendance = async (memberId: string, date: string) => {
+    const currentStatus = records[memberId]?.[date] || false;
+    const newStatus = !currentStatus;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      const { error } = await supabase.from("attendance_records").upsert(
+        {
+          member_id: memberId,
+          date: date,
+          attended: newStatus,
+        },
+        {
+          onConflict: "member_id,date",
+        }
+      );
+
+      if (error) {
+        console.error("출석 기록 저장 에러:", error);
+        alert("출석 기록 저장 중 오류가 발생했습니다.");
+        return;
+      }
+
+      setRecords((prev) => ({
+        ...prev,
+        [memberId]: {
+          ...(prev[memberId] || {}),
+          [date]: newStatus,
+        },
+      }));
+    } catch (err: any) {
+      console.error("출석 체크 에러:", err);
+      alert("출석 체크 중 오류가 발생했습니다.");
+    }
+  };
+
+  const loadMembersForModal = async () => {
+    const { data: membersData, error: membersError } = await supabase
+      .from("attendance_members")
+      .select("*")
+      .order("name", { ascending: true });
+
+    if (membersError) {
+      console.error("출석체크 대상자 조회 에러:", membersError);
+    } else {
+      setMembersForModal((membersData as AttendanceMember[]) || []);
+    }
+  };
+
+  const handleSingleAdd = async () => {
+    if (!singleFormData.name.trim()) {
+      alert("이름을 입력해주세요.");
+      return;
+    }
+
+    setSavingMember(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        setSavingMember(false);
+        return;
+      }
+
+      const { error } = await supabase.from("attendance_members").insert({
+        name: singleFormData.name.trim(),
+        gender: singleFormData.gender || null,
+        birth_date: singleFormData.birth_date || null,
+        department: "청년부",
+        created_by: user.id,
+      });
+
+      if (error) {
+        console.error("추가 에러:", error);
+        alert("추가 중 오류가 발생했습니다.");
+        setSavingMember(false);
+        return;
+      }
+
+      await loadMembersForModal();
+      setSingleFormData({ name: "", gender: "", birth_date: "" });
+      alert("추가되었습니다.");
+    } catch (err: any) {
+      console.error("저장 에러:", err);
+      alert("저장 중 오류가 발생했습니다.");
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
+  const handleBulkAdd = async () => {
+    if (!bulkInput.trim()) {
+      alert("이름을 입력해주세요.");
+      return;
+    }
+
+    setSavingMember(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        setSavingMember(false);
+        return;
+      }
+
+      // 한 줄에 하나씩 이름 입력 (줄바꿈으로 구분)
+      const names = bulkInput
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      if (names.length === 0) {
+        alert("이름을 입력해주세요.");
+        setSavingMember(false);
+        return;
+      }
+
+      // 청년부로 자동 지정하여 일괄 추가
+      const newMembers = names.map((name) => ({
+        name,
+        department: "청년부",
+        created_by: user.id,
+      }));
+
+      const { error } = await supabase.from("attendance_members").insert(newMembers);
+
+      if (error) {
+        console.error("추가 에러:", error);
+        alert("추가 중 오류가 발생했습니다.");
+        setSavingMember(false);
+        return;
+      }
+
+      await loadMembersForModal();
+      setBulkInput("");
+      setShowAddForm(false);
+      alert(`${names.length}명이 추가되었습니다.`);
+    } catch (err: any) {
+      console.error("저장 에러:", err);
+      alert("저장 중 오류가 발생했습니다.");
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
+  const handleEditMember = (member: AttendanceMember) => {
+    setEditingMemberId(member.id);
+    setEditFormData({
+      name: member.name,
+      gender: member.gender || "",
+      birth_date: member.birth_date || "",
+      department: member.department || "",
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMemberId(null);
+    setEditFormData({ name: "", gender: "", birth_date: "", department: "" });
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    if (!editFormData.name.trim()) {
+      alert("이름을 입력해주세요.");
+      return;
+    }
+
+    setSavingMember(true);
+
+    try {
+      const { error } = await supabase
+        .from("attendance_members")
+        .update({
+          name: editFormData.name.trim(),
+          gender: editFormData.gender || null,
+          birth_date: editFormData.birth_date || null,
+          department: editFormData.department || null,
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error("수정 에러:", error);
+        alert("수정 중 오류가 발생했습니다.");
+        setSavingMember(false);
+        return;
+      }
+
+      await loadMembersForModal();
+      handleCancelEdit();
+      alert("수정되었습니다.");
+    } catch (err: any) {
+      console.error("수정 에러:", err);
+      alert("수정 중 오류가 발생했습니다.");
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
+  const handleDeleteMember = async (id: string, name: string) => {
+    if (!confirm(`"${name}"을(를) 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("attendance_members").delete().eq("id", id);
+
+      if (error) {
+        console.error("삭제 에러:", error);
+        alert("삭제 중 오류가 발생했습니다.");
+        return;
+      }
+
+      await loadMembersForModal();
+      alert("삭제되었습니다.");
+    } catch (err: any) {
+      console.error("삭제 에러:", err);
+      alert("삭제 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleFillEmptyFields = async () => {
+    if (!confirm("비어있는 값들을 임의로 채우시겠습니까?")) {
+      return;
+    }
+
+    setSavingMember(true);
+
+    try {
+      // 부서명 매핑
+      const deptMapping: Record<string, string> = {
+        "아동부": "유치부",
+        "중고등부": "청소년부",
+      };
+
+      // 비어있는 필드가 있는 명단 필터링
+      const membersToUpdate = membersForModal.filter((m) => {
+        const mappedDept = deptMapping[m.department || ""] || m.department;
+        const displayDept = userDepartment
+          ? mappedDept === userDepartment || m.department === userDepartment
+          : true;
+        return displayDept && (!m.gender || !m.birth_date || !m.department);
+      });
+
+      if (membersToUpdate.length === 0) {
+        alert("채울 비어있는 값이 없습니다.");
+        setSavingMember(false);
+        return;
+      }
+
+      // 각 명단의 비어있는 필드 업데이트
+      const updatePromises = membersToUpdate.map(async (member) => {
+        const updates: {
+          gender?: string;
+          birth_date?: string;
+          department?: string;
+        } = {};
+
+        // 성별이 비어있으면 랜덤 선택
+        if (!member.gender) {
+          updates.gender = Math.random() < 0.5 ? "남" : "여";
+        }
+
+        // 생년월일이 비어있으면 1990~2010 사이 랜덤 날짜
+        if (!member.birth_date) {
+          const year = Math.floor(Math.random() * 21) + 1990; // 1990~2010
+          const month = Math.floor(Math.random() * 12) + 1;
+          const day = Math.floor(Math.random() * 28) + 1; // 28일까지만
+          updates.birth_date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        }
+
+        // 부서가 비어있으면 청년부로 설정
+        if (!member.department) {
+          updates.department = "청년부";
+        }
+
+        if (Object.keys(updates).length > 0) {
+          return supabase.from("attendance_members").update(updates).eq("id", member.id);
+        }
+        return null;
+      });
+
+      await Promise.all(updatePromises.filter(Boolean));
+      await loadMembersForModal();
+      alert(`${membersToUpdate.length}명의 비어있는 값이 채워졌습니다.`);
+    } catch (err: any) {
+      console.error("업데이트 에러:", err);
+      alert("업데이트 중 오류가 발생했습니다.");
+    } finally {
+      setSavingMember(false);
+    }
+  };
+
   if (loading) {
     return (
       <div
@@ -310,64 +633,133 @@ export default function AttendancePage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-            출석체크 통계
-          </h1>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
-            이번 주일 ({sundayDate} ~ {currentWeekDates[6]})
-          </p>
-        </div>
-        <Link
-          href="/attendance/members"
-          style={{
-            padding: "8px 16px",
-            borderRadius: 6,
-            border: "none",
-            background: "#3b82f6",
-            color: "#ffffff",
-            fontWeight: 500,
-            fontSize: 13,
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
-        >
-          명단 관리
-        </Link>
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
+          출석체크 통계
+        </h1>
+        <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+          이번 주일 ({sundayDate} ~ {currentWeekDates[6]})
+        </p>
       </div>
 
-      {/* 주요 통계 카드 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+      {/* 주요 통계 카드 (관리자만) */}
+      {isAdmin && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 8,
+              padding: "16px",
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
+          </div>
+
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 8,
+              padding: "16px",
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
+              {stats.weekAvgRate}%
+            </div>
+            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+              주일예배 평균
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 부서담당자용 출석체크 */}
+      {!isAdmin && userDepartment && (
         <div
           style={{
             backgroundColor: "#ffffff",
             borderRadius: 8,
-            padding: "16px",
+            padding: "20px",
             border: "1px solid #e5e7eb",
+            marginBottom: 16,
           }}
         >
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
-        </div>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
+              {userDepartment} 출석체크
+            </h2>
+            <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+              이번 주일 ({sundayDate && formatDate(sundayDate)})
+            </p>
+          </div>
+          {(() => {
+            // 부서명 매핑
+            const deptMapping: Record<string, string> = {
+              "아동부": "유치부",
+              "중고등부": "청소년부",
+            };
 
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            padding: "16px",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
-            {stats.weekAvgRate}%
-          </div>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
-            주일예배 평균
-          </div>
+            // 담당 부서의 명단 필터링 및 가나다순 정렬
+            const deptMembers = members
+              .filter((m) => {
+                const mappedDept = deptMapping[m.department || ""] || m.department;
+                return mappedDept === userDepartment || m.department === userDepartment;
+              })
+              .sort((a, b) => a.name.localeCompare(b.name));
+
+            if (deptMembers.length === 0) {
+              return (
+                <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+                  출석체크 대상자가 없습니다. 명단 관리에서 추가해주세요.
+                </div>
+              );
+            }
+
+            return (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {deptMembers.map((member) => {
+                  const attended = records[member.id]?.[sundayDate] === true;
+                  return (
+                    <button
+                      key={member.id}
+                      onClick={() => toggleAttendance(member.id, sundayDate)}
+                      style={{
+                        padding: "12px 20px",
+                        borderRadius: 8,
+                        border: `1px solid ${attended ? "#3b82f6" : "#e5e7eb"}`,
+                        background: attended ? "#3b82f6" : "#ffffff",
+                        color: attended ? "#ffffff" : "#1f2937",
+                        fontSize: 15,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        minWidth: 100,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!attended) {
+                          e.currentTarget.style.background = "#f3f4f6";
+                          e.currentTarget.style.borderColor = "#d1d5db";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!attended) {
+                          e.currentTarget.style.background = "#ffffff";
+                          e.currentTarget.style.borderColor = "#e5e7eb";
+                        }
+                      }}
+                    >
+                      {member.name}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
-      </div>
+      )}
 
       {/* 교회학교 출석현황 */}
       <div
@@ -378,7 +770,9 @@ export default function AttendancePage() {
           border: "1px solid #e5e7eb",
         }}
       >
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>교회학교 출석현황</h2>
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0 }}>교회학교 출석현황</h2>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
           {(() => {
             // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
@@ -445,9 +839,24 @@ export default function AttendancePage() {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: "#1f2937", minWidth: 70 }}>
+                      <Link
+                        href={`/attendance/${encodeURIComponent(dept)}`}
+                        onClick={(e) => {
+                          if (isAdmin) {
+                            e.stopPropagation();
+                          }
+                        }}
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 600,
+                          color: "#1f2937",
+                          minWidth: 70,
+                          textDecoration: "none",
+                          cursor: "pointer",
+                        }}
+                      >
                         {dept}
-                      </div>
+                      </Link>
                       <div style={{ fontSize: 14, color: "#6b7280", minWidth: 0, flex: 1 }}>
                         {deptStats.manager ? (
                           <>
@@ -464,38 +873,60 @@ export default function AttendancePage() {
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#10b981", minWidth: 60, textAlign: "right" }}>
                         {rate}%
                       </div>
-                      {isAdmin && (
-                        <div style={{ fontSize: 14, color: "#9ca3af", marginLeft: 8 }}>
-                          {isExpanded ? "▼" : "▶"}
-                        </div>
-                      )}
                     </div>
                   </div>
                   {isExpanded && (
                     <div style={{ backgroundColor: "#f9fafb", borderTop: "1px solid #e5e7eb", padding: "12px 16px" }}>
-                      <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 8, fontWeight: 500 }}>
+                      <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 500 }}>
                         명단 ({deptMembers.length}명)
                       </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {deptMembers.map((member) => {
-                          const sundayDate = currentWeekDates[0];
-                          const isAttended = records[member.id]?.[sundayDate] === true;
-                          return (
-                            <div
-                              key={member.id}
-                              style={{
-                                padding: "6px 12px",
-                                borderRadius: 6,
-                                backgroundColor: isAttended ? "#d1fae5" : "#ffffff",
-                                border: `1px solid ${isAttended ? "#10b981" : "#e5e7eb"}`,
-                                fontSize: 13,
-                                color: "#1f2937",
-                              }}
-                            >
-                              {member.name}
-                            </div>
-                          );
-                        })}
+                      <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", backgroundColor: "#ffffff" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead>
+                            <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                이름
+                              </th>
+                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                성별
+                              </th>
+                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                생년월일
+                              </th>
+                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                출석
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {deptMembers.map((member, idx) => {
+                              const sundayDate = currentWeekDates[0];
+                              const isAttended = records[member.id]?.[sundayDate] === true;
+                              return (
+                                <tr
+                                  key={member.id}
+                                  style={{
+                                    borderBottom: idx < deptMembers.length - 1 ? "1px solid #e5e7eb" : "none",
+                                    backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
+                                  }}
+                                >
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#1f2937" }}>
+                                    {member.name}
+                                  </td>
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
+                                    {member.gender || "-"}
+                                  </td>
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
+                                    {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
+                                  </td>
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: isAttended ? "#10b981" : "#9ca3af" }}>
+                                    {isAttended ? "출석" : "-"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
@@ -505,6 +936,566 @@ export default function AttendancePage() {
           })()}
         </div>
       </div>
+
+      {/* 명단관리 팝업 */}
+      {showMembersModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            zIndex: 1000,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            padding: "20px",
+          }}
+          onClick={() => {
+            setShowMembersModal(false);
+            setShowAddForm(false);
+            setBulkInput("");
+            setSingleFormData({ name: "", gender: "", birth_date: "" });
+            setAddMode("single");
+            setSelectedDepartmentInModal(null);
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 12,
+              padding: "24px",
+              width: "100%",
+              maxWidth: 800,
+              maxHeight: "90vh",
+              overflow: "auto",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", margin: 0 }}>명단관리</h2>
+              <button
+                onClick={() => {
+                  setShowMembersModal(false);
+                  setShowAddForm(false);
+                  setBulkInput("");
+                  setSingleFormData({ name: "", gender: "", birth_date: "" });
+                  setAddMode("single");
+                  setSelectedDepartmentInModal(null);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 24,
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: 0,
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {(() => {
+              // 부서명 매핑
+              const deptMapping: Record<string, string> = {
+                "아동부": "유치부",
+                "중고등부": "청소년부",
+              };
+
+              // 담당 부서 필터링 또는 선택된 부서 필터링
+              const targetDepartment = userDepartment || selectedDepartmentInModal;
+              const filteredMembers = targetDepartment
+                ? membersForModal.filter((m) => {
+                    const mappedDept = deptMapping[m.department || ""] || m.department;
+                    return mappedDept === targetDepartment || m.department === targetDepartment;
+                  })
+                : membersForModal;
+
+              return (
+                <>
+                  {isAdmin && !userDepartment && (
+                    <div style={{ marginBottom: 16, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => setSelectedDepartmentInModal(null)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #e5e7eb",
+                          background: selectedDepartmentInModal === null ? "#3b82f6" : "#ffffff",
+                          color: selectedDepartmentInModal === null ? "#ffffff" : "#374151",
+                          fontWeight: 500,
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        전체
+                      </button>
+                      {departments.map((dept) => (
+                        <button
+                          key={dept}
+                          onClick={() => setSelectedDepartmentInModal(dept)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #e5e7eb",
+                            background: selectedDepartmentInModal === dept ? "#3b82f6" : "#ffffff",
+                            color: selectedDepartmentInModal === dept ? "#ffffff" : "#374151",
+                            fontWeight: 500,
+                            fontSize: 13,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {dept}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 14, color: "#6b7280" }}>
+                      총 {filteredMembers.length}명
+                      {(userDepartment || selectedDepartmentInModal) && ` (${userDepartment || selectedDepartmentInModal})`}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {isAdmin && (
+                        <button
+                          onClick={handleFillEmptyFields}
+                          disabled={savingMember}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: 6,
+                            border: "1px solid #e5e7eb",
+                            background: savingMember ? "#f3f4f6" : "#ffffff",
+                            color: savingMember ? "#9ca3af" : "#374151",
+                            fontWeight: 500,
+                            fontSize: 13,
+                            cursor: savingMember ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          비어있는 값 채우기
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: 6,
+                          border: "1px solid #e5e7eb",
+                          background: "#ffffff",
+                          color: "#374151",
+                          fontWeight: 500,
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {showAddForm ? "취소" : "명단 추가"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {showAddForm && (
+                    <div style={{ marginBottom: 20, padding: 16, backgroundColor: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                        <button
+                          onClick={() => setAddMode("single")}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #e5e7eb",
+                            background: addMode === "single" ? "#3b82f6" : "#ffffff",
+                            color: addMode === "single" ? "#ffffff" : "#374151",
+                            fontWeight: 500,
+                            fontSize: 13,
+                            cursor: "pointer",
+                          }}
+                        >
+                          개별 추가
+                        </button>
+                        <button
+                          onClick={() => setAddMode("bulk")}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #e5e7eb",
+                            background: addMode === "bulk" ? "#3b82f6" : "#ffffff",
+                            color: addMode === "bulk" ? "#ffffff" : "#374151",
+                            fontWeight: 500,
+                            fontSize: 13,
+                            cursor: "pointer",
+                          }}
+                        >
+                          일괄 추가
+                        </button>
+                      </div>
+
+                      {addMode === "single" ? (
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", marginBottom: 12 }}>
+                            개별 추가 (청년부로 자동 지정)
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div>
+                              <label style={{ fontSize: 13, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
+                                이름 *
+                              </label>
+                              <input
+                                type="text"
+                                value={singleFormData.name}
+                                onChange={(e) => setSingleFormData({ ...singleFormData, name: e.target.value })}
+                                placeholder="이름을 입력하세요"
+                                style={{
+                                  width: "100%",
+                                  padding: "10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #e5e7eb",
+                                  fontSize: 14,
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 13, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
+                                성별
+                              </label>
+                              <select
+                                value={singleFormData.gender}
+                                onChange={(e) => setSingleFormData({ ...singleFormData, gender: e.target.value })}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #e5e7eb",
+                                  fontSize: 14,
+                                  backgroundColor: "#ffffff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <option value="">선택 안 함</option>
+                                <option value="남">남</option>
+                                <option value="여">여</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 13, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
+                                생년월일
+                              </label>
+                              <input
+                                type="date"
+                                value={singleFormData.birth_date}
+                                onChange={(e) => setSingleFormData({ ...singleFormData, birth_date: e.target.value })}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px",
+                                  borderRadius: 6,
+                                  border: "1px solid #e5e7eb",
+                                  fontSize: 14,
+                                }}
+                              />
+                            </div>
+                            <button
+                              onClick={handleSingleAdd}
+                              disabled={savingMember}
+                              style={{
+                                padding: "10px 16px",
+                                borderRadius: 6,
+                                border: "none",
+                                background: savingMember ? "#9ca3af" : "#3b82f6",
+                                color: "#ffffff",
+                                fontWeight: 500,
+                                fontSize: 14,
+                                cursor: savingMember ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              {savingMember ? "저장 중..." : "추가"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", marginBottom: 8 }}>
+                            일괄 추가 (청년부로 자동 지정)
+                          </div>
+                          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+                            한 줄에 하나씩 이름을 입력하세요
+                          </div>
+                          <textarea
+                            value={bulkInput}
+                            onChange={(e) => setBulkInput(e.target.value)}
+                            placeholder="홍길동&#10;김철수&#10;이영희"
+                            style={{
+                              width: "100%",
+                              minHeight: 120,
+                              padding: "10px",
+                              borderRadius: 6,
+                              border: "1px solid #e5e7eb",
+                              fontSize: 14,
+                              fontFamily: "inherit",
+                              resize: "vertical",
+                              marginBottom: 12,
+                            }}
+                          />
+                          <button
+                            onClick={handleBulkAdd}
+                            disabled={savingMember}
+                            style={{
+                              padding: "8px 16px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: savingMember ? "#9ca3af" : "#3b82f6",
+                              color: "#ffffff",
+                              fontWeight: 500,
+                              fontSize: 13,
+                              cursor: savingMember ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {savingMember ? "저장 중..." : "추가"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ maxHeight: "60vh", overflow: "auto" }}>
+                      {filteredMembers.length === 0 ? (
+                        <div style={{ padding: 40, textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+                          명단이 없습니다.
+                        </div>
+                      ) : (
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                          <thead>
+                            <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                              <th style={{ padding: "12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                이름
+                              </th>
+                              <th style={{ padding: "12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                성별
+                              </th>
+                              <th style={{ padding: "12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                생년월일
+                              </th>
+                              <th style={{ padding: "12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                부서
+                              </th>
+                              {isAdmin && (
+                                <>
+                                  <th style={{ padding: "12px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                    편집
+                                  </th>
+                                  <th style={{ padding: "12px", textAlign: "right", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                                    삭제
+                                  </th>
+                                </>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredMembers.map((member, index) => {
+                              const isEditing = editingMemberId === member.id;
+                              return (
+                                <tr
+                                  key={member.id}
+                                  style={{
+                                    borderBottom: index < filteredMembers.length - 1 ? "1px solid #e5e7eb" : "none",
+                                    backgroundColor: isEditing ? "#f0f9ff" : "#ffffff",
+                                  }}
+                                >
+                                  {isEditing ? (
+                                    <>
+                                      <td style={{ padding: "12px" }}>
+                                        <input
+                                          type="text"
+                                          value={editFormData.name}
+                                          onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                                          style={{
+                                            width: "100%",
+                                            padding: "6px 8px",
+                                            borderRadius: 4,
+                                            border: "1px solid #e5e7eb",
+                                            fontSize: 13,
+                                          }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: "12px" }}>
+                                        <select
+                                          value={editFormData.gender}
+                                          onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
+                                          style={{
+                                            width: "100%",
+                                            padding: "6px 8px",
+                                            borderRadius: 4,
+                                            border: "1px solid #e5e7eb",
+                                            fontSize: 13,
+                                            backgroundColor: "#ffffff",
+                                            cursor: "pointer",
+                                          }}
+                                        >
+                                          <option value="">선택 안 함</option>
+                                          <option value="남">남</option>
+                                          <option value="여">여</option>
+                                        </select>
+                                      </td>
+                                      <td style={{ padding: "12px" }}>
+                                        <input
+                                          type="date"
+                                          value={editFormData.birth_date}
+                                          onChange={(e) => setEditFormData({ ...editFormData, birth_date: e.target.value })}
+                                          style={{
+                                            width: "100%",
+                                            padding: "6px 8px",
+                                            borderRadius: 4,
+                                            border: "1px solid #e5e7eb",
+                                            fontSize: 13,
+                                          }}
+                                        />
+                                      </td>
+                                      <td style={{ padding: "12px" }}>
+                                        <select
+                                          value={editFormData.department}
+                                          onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                                          style={{
+                                            width: "100%",
+                                            padding: "6px 8px",
+                                            borderRadius: 4,
+                                            border: "1px solid #e5e7eb",
+                                            fontSize: 13,
+                                            backgroundColor: "#ffffff",
+                                            cursor: "pointer",
+                                          }}
+                                        >
+                                          <option value="">선택 안 함</option>
+                                          <option value="유치부">유치부</option>
+                                          <option value="유초등부">유초등부</option>
+                                          <option value="청소년부">청소년부</option>
+                                          <option value="청년부">청년부</option>
+                                        </select>
+                                      </td>
+                                      {isAdmin && (
+                                        <td style={{ padding: "12px", textAlign: "center" }}>
+                                          <button
+                                            onClick={() => handleSaveEdit(member.id)}
+                                            disabled={savingMember}
+                                            style={{
+                                              padding: "4px 12px",
+                                              borderRadius: 4,
+                                              border: "none",
+                                              background: savingMember ? "#9ca3af" : "#10b981",
+                                              color: "#ffffff",
+                                              fontSize: 12,
+                                              cursor: savingMember ? "not-allowed" : "pointer",
+                                              marginRight: 4,
+                                            }}
+                                          >
+                                            저장
+                                          </button>
+                                          <button
+                                            onClick={handleCancelEdit}
+                                            disabled={savingMember}
+                                            style={{
+                                              padding: "4px 12px",
+                                              borderRadius: 4,
+                                              border: "1px solid #e5e7eb",
+                                              background: "#ffffff",
+                                              color: "#374151",
+                                              fontSize: 12,
+                                              cursor: savingMember ? "not-allowed" : "pointer",
+                                            }}
+                                          >
+                                            취소
+                                          </button>
+                                        </td>
+                                      )}
+                                      {isAdmin && (
+                                        <td style={{ padding: "12px", textAlign: "right" }}>
+                                          <button
+                                            onClick={() => handleDeleteMember(member.id, member.name)}
+                                            disabled={savingMember}
+                                            style={{
+                                              padding: "4px 12px",
+                                              borderRadius: 4,
+                                              border: "1px solid #ef4444",
+                                              background: "transparent",
+                                              color: "#ef4444",
+                                              fontSize: 12,
+                                              cursor: savingMember ? "not-allowed" : "pointer",
+                                            }}
+                                          >
+                                            삭제
+                                          </button>
+                                        </td>
+                                      )}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <td style={{ padding: "12px", fontSize: 14, color: "#1f2937" }}>{member.name}</td>
+                                      <td style={{ padding: "12px", fontSize: 14, color: "#6b7280" }}>
+                                        {member.gender || "-"}
+                                      </td>
+                                      <td style={{ padding: "12px", fontSize: 14, color: "#6b7280" }}>
+                                        {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
+                                      </td>
+                                      <td style={{ padding: "12px", fontSize: 14, color: "#6b7280" }}>
+                                        {deptMapping[member.department || ""] || member.department || "-"}
+                                      </td>
+                                      {isAdmin && (
+                                        <td style={{ padding: "12px", textAlign: "center" }}>
+                                          <button
+                                            onClick={() => handleEditMember(member)}
+                                            style={{
+                                              padding: "4px 12px",
+                                              borderRadius: 4,
+                                              border: "1px solid #3b82f6",
+                                              background: "transparent",
+                                              color: "#3b82f6",
+                                              fontSize: 12,
+                                              cursor: "pointer",
+                                            }}
+                                          >
+                                            편집
+                                          </button>
+                                        </td>
+                                      )}
+                                      {isAdmin && (
+                                        <td style={{ padding: "12px", textAlign: "right" }}>
+                                          <button
+                                            onClick={() => handleDeleteMember(member.id, member.name)}
+                                            style={{
+                                              padding: "4px 12px",
+                                              borderRadius: 4,
+                                              border: "1px solid #ef4444",
+                                              background: "transparent",
+                                              color: "#ef4444",
+                                              fontSize: 12,
+                                              cursor: "pointer",
+                                            }}
+                                          >
+                                            삭제
+                                          </button>
+                                        </td>
+                                      )}
+                                    </>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

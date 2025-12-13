@@ -10,6 +10,7 @@ type AttendanceMember = {
   name: string;
   gender: string | null;
   birth_date: string | null;
+  department: string | null;
   created_at: string;
 };
 
@@ -21,7 +22,7 @@ type AttendanceRecord = {
   created_at: string;
 };
 
-const departments = ["유초등부", "아동부", "중고등부", "청년부", "장년부", "찬양팀", "안내팀"];
+const departments = ["유치부", "유초등부", "청소년부", "청년부"];
 
 export default function DepartmentAttendancePage() {
   const router = useRouter();
@@ -33,6 +34,8 @@ export default function DepartmentAttendancePage() {
   const [members, setMembers] = useState<AttendanceMember[]>([]);
   const [records, setRecords] = useState<Record<string, Record<string, boolean>>>({});
   const [currentWeekDates, setCurrentWeekDates] = useState<string[]>([]);
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 이번 주일 날짜들 계산 (일요일 기준)
   useEffect(() => {
@@ -85,7 +88,7 @@ export default function DepartmentAttendancePage() {
         // 권한 확인
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, attendance_permission")
+          .select("role, attendance_permission, department")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -97,9 +100,25 @@ export default function DepartmentAttendancePage() {
           return;
         }
 
+        setIsAdmin(isAdminUser);
+        
+        // 부서명 매핑
+        const deptMapping: Record<string, string> = {
+          "아동부": "유치부",
+          "중고등부": "청소년부",
+        };
+        
+        // 사용자의 부서 정보 설정
+        if (!isAdminUser && profile?.department) {
+          const mappedDept = deptMapping[profile.department] || profile.department;
+          setUserDepartment(mappedDept);
+        } else {
+          setUserDepartment(null);
+        }
+
         setHasPermission(true);
 
-        // 출석체크 대상자 목록 불러오기 (전체 대상자 중에서 해당 부서에 속한 대상자 필터링은 나중에 추가 가능)
+        // 출석체크 대상자 목록 불러오기 (부서 필터링)
         const { data: membersData, error: membersError } = await supabase
           .from("attendance_members")
           .select("*")
@@ -108,7 +127,24 @@ export default function DepartmentAttendancePage() {
         if (membersError) {
           console.error("출석체크 대상자 조회 에러:", membersError);
         } else {
-          setMembers((membersData as AttendanceMember[]) || []);
+          // 부서 필터링
+          const allMembers = (membersData as AttendanceMember[]) || [];
+          if (!isAdminUser && userDepartment) {
+            const filtered = allMembers.filter((m) => {
+              const mappedDept = deptMapping[m.department || ""] || m.department;
+              return mappedDept === userDepartment || m.department === userDepartment;
+            });
+            setMembers(filtered);
+          } else if (department) {
+            // 부서 페이지인 경우 해당 부서만 필터링
+            const filtered = allMembers.filter((m) => {
+              const mappedDept = deptMapping[m.department || ""] || m.department;
+              return mappedDept === department || m.department === department;
+            });
+            setMembers(filtered);
+          } else {
+            setMembers(allMembers);
+          }
         }
 
         // 이번 주 출석 기록 불러오기
@@ -147,6 +183,12 @@ export default function DepartmentAttendancePage() {
     const newStatus = !currentStatus;
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
       const { error } = await supabase.from("attendance_records").upsert(
         {
           member_id: memberId,
@@ -236,15 +278,27 @@ export default function DepartmentAttendancePage() {
     );
   }
 
+  // 일요일 날짜 (오늘 날짜 기준)
+  const sundayDate = currentWeekDates[0];
+
+  // 부서명 매핑
+  const deptMapping: Record<string, string> = {
+    "아동부": "유치부",
+    "중고등부": "청소년부",
+  };
+
+  // 표시할 부서명
+  const displayDepartment = userDepartment || department;
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-            {department} 출석체크
+            {displayDepartment} 출석체크
           </h1>
           <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
-            이번 주일 ({currentWeekDates[0]} ~ {currentWeekDates[6]})
+            일요일 출석체크 ({sundayDate && formatDate(sundayDate)})
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -264,22 +318,6 @@ export default function DepartmentAttendancePage() {
           >
             통계 보기
           </Link>
-          <Link
-            href="/attendance/members"
-            style={{
-              padding: "8px 16px",
-              borderRadius: 6,
-              border: "none",
-              background: "#3b82f6",
-              color: "#ffffff",
-              fontWeight: 500,
-              fontSize: 13,
-              textDecoration: "none",
-              cursor: "pointer",
-            }}
-          >
-            명단 관리
-          </Link>
         </div>
       </div>
 
@@ -288,177 +326,52 @@ export default function DepartmentAttendancePage() {
           backgroundColor: "#ffffff",
           borderRadius: 8,
           border: "1px solid #e5e7eb",
-          overflow: "hidden",
+          padding: "20px",
         }}
       >
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ backgroundColor: "#f9fafb" }}>
-                <th
+        {members.length === 0 ? (
+          <div style={{ padding: "40px", textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+            출석체크 대상자가 없습니다. 명단 관리에서 추가해주세요.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            {members.map((member) => {
+              const attended = records[member.id]?.[sundayDate] === true;
+              return (
+                <button
+                  key={member.id}
+                  onClick={() => toggleAttendance(member.id, sundayDate)}
                   style={{
-                    padding: "12px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    position: "sticky",
-                    left: 0,
-                    backgroundColor: "#f9fafb",
-                    zIndex: 10,
+                    padding: "12px 20px",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    background: attended ? "#3b82f6" : "#ffffff",
+                    color: attended ? "#ffffff" : "#1f2937",
+                    fontSize: 15,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    minWidth: 100,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!attended) {
+                      e.currentTarget.style.background = "#f3f4f6";
+                      e.currentTarget.style.borderColor = "#d1d5db";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!attended) {
+                      e.currentTarget.style.background = "#ffffff";
+                      e.currentTarget.style.borderColor = "#e5e7eb";
+                    }
                   }}
                 >
-                  이름
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    minWidth: 60,
-                  }}
-                >
-                  성별
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    minWidth: 80,
-                  }}
-                >
-                  생년월일
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    minWidth: 60,
-                  }}
-                >
-                  나이
-                </th>
-                {currentWeekDates.map((date) => (
-                  <th
-                    key={date}
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      fontWeight: 600,
-                      color: "#374151",
-                      borderBottom: "1px solid #e5e7eb",
-                      minWidth: 100,
-                    }}
-                  >
-                    {formatDate(date)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {members.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4 + currentWeekDates.length}
-                    style={{
-                      padding: "40px",
-                      textAlign: "center",
-                      color: "#9ca3af",
-                      fontSize: 14,
-                    }}
-                  >
-                    출석체크 대상자가 없습니다. 명단 관리에서 추가해주세요.
-                  </td>
-                </tr>
-              ) : (
-                members.map((member) => {
-                  const age = calculateAge(member.birth_date);
-                  return (
-                    <tr
-                      key={member.id}
-                      style={{
-                        borderBottom: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <td
-                        style={{
-                          padding: "12px",
-                          fontWeight: 500,
-                          color: "#1f2937",
-                          position: "sticky",
-                          left: 0,
-                          backgroundColor: "#ffffff",
-                          zIndex: 5,
-                        }}
-                      >
-                        {member.name}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {member.gender || "-"}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {member.birth_date
-                          ? new Date(member.birth_date).toLocaleDateString("ko-KR")
-                          : "-"}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {age !== null ? `${age}세` : "-"}
-                      </td>
-                      {currentWeekDates.map((date) => {
-                        const attended = records[member.id]?.[date] || false;
-                        return (
-                          <td
-                            key={date}
-                            style={{
-                              padding: "12px",
-                              textAlign: "center",
-                            }}
-                          >
-                            <button
-                              onClick={() => toggleAttendance(member.id, date)}
-                              style={{
-                                padding: "6px 12px",
-                                borderRadius: 4,
-                                border: "1px solid #e5e7eb",
-                                background: attended ? "#10b981" : "#ffffff",
-                                color: attended ? "#ffffff" : "#374151",
-                                fontSize: 12,
-                                fontWeight: 500,
-                                cursor: "pointer",
-                                transition: "all 0.2s ease",
-                                minWidth: 60,
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!attended) {
-                                  e.currentTarget.style.background = "#f3f4f6";
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!attended) {
-                                  e.currentTarget.style.background = "#ffffff";
-                                }
-                              }}
-                            >
-                              {attended ? "출석" : "결석"}
-                            </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  {member.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

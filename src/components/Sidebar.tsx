@@ -21,6 +21,7 @@ const getIcon = (label: string) => {
     관리자페이지: "⚙️",
     "통계 대시보드": "📊",
     "출석체크": "✅",
+    "명단관리": "📋",
   };
   return icons[label] || "•";
 };
@@ -97,7 +98,10 @@ export default function Sidebar() {
   ];
 
   const permissionMenuItems: MenuItem[] = hasAttendancePermission
-    ? [{ label: "출석체크", path: "/attendance", icon: getIcon("출석체크") }]
+    ? [
+        { label: "출석체크", path: "/attendance", icon: getIcon("출석체크") },
+        { label: "명단관리", path: "/attendance/members", icon: getIcon("명단관리") },
+      ]
     : [];
 
   // 관리자 메뉴 아이템 정의
