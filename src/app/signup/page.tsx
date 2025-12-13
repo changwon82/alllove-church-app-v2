@@ -37,30 +37,65 @@ export default function SignupPage() {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
+        options: {
+          data: {
+            full_name: name.trim(),
+          },
+        },
       });
 
       if (error) {
         setErrorMsg(error.message);
+        setLoading(false);
         return;
       }
 
       const user = data.user;
       if (!user) {
         setErrorMsg("사용자 정보가 없습니다. 다시 시도해주세요.");
+        setLoading(false);
         return;
       }
 
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: user.id,
-        email: user.email,
-        full_name: name.trim(),
-        role: "member",
-      });
+      // 트리거로 자동 생성되는 경우를 대비해 잠시 대기
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (profileError) {
-        console.error("profiles insert error", profileError);
-        setErrorMsg("프로필 저장 중 오류가 발생했습니다.");
-        return;
+      // 프로필이 없으면 직접 생성 시도
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        const { error: profileError } = await supabase.from("profiles").insert({
+          id: user.id,
+          email: user.email,
+          full_name: name.trim(),
+          role: "member",
+          approved: false,
+        });
+
+        if (profileError) {
+          console.error("profiles insert error", profileError);
+          console.error("Error details:", {
+            message: profileError.message,
+            details: profileError.details,
+            hint: profileError.hint,
+            code: profileError.code,
+          });
+          setErrorMsg(
+            profileError.message || "프로필 저장 중 오류가 발생했습니다."
+          );
+          setLoading(false);
+          return;
+        }
+      } else {
+        // 프로필이 이미 있으면 이름만 업데이트
+        await supabase
+          .from("profiles")
+          .update({ full_name: name.trim() })
+          .eq("id", user.id);
       }
 
       router.push("/login");

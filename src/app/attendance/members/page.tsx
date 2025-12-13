@@ -9,8 +9,11 @@ type AttendanceMember = {
   name: string;
   gender: string | null;
   birth_date: string | null;
+  department: string | null;
   created_at: string;
 };
+
+const departments = ["유초등부", "아동부", "중고등부", "청년부", "장년부", "찬양팀", "안내팀"];
 
 export default function AttendanceMembersPage() {
   const router = useRouter();
@@ -97,7 +100,7 @@ export default function AttendanceMembersPage() {
   };
 
   const handleAdd = () => {
-    setFormData({ name: "", gender: "", birth_date: "" });
+    setFormData({ name: "", gender: "", birth_date: "", department: "" });
     setEditingId(null);
     setShowAddForm(true);
   };
@@ -107,6 +110,7 @@ export default function AttendanceMembersPage() {
       name: member.name,
       gender: member.gender || "",
       birth_date: member.birth_date || "",
+      department: member.department || "",
     });
     setEditingId(member.id);
     setShowAddForm(true);
@@ -115,7 +119,7 @@ export default function AttendanceMembersPage() {
   const handleCancel = () => {
     setShowAddForm(false);
     setEditingId(null);
-    setFormData({ name: "", gender: "", birth_date: "" });
+    setFormData({ name: "", gender: "", birth_date: "", department: "" });
   };
 
   const handleSave = async () => {
@@ -145,6 +149,7 @@ export default function AttendanceMembersPage() {
             name: formData.name.trim(),
             gender: formData.gender || null,
             birth_date: formData.birth_date || null,
+            department: formData.department || null,
           })
           .eq("id", editingId);
 
@@ -160,6 +165,7 @@ export default function AttendanceMembersPage() {
           name: formData.name.trim(),
           gender: formData.gender || null,
           birth_date: formData.birth_date || null,
+          department: formData.department || null,
           created_by: user.id,
         });
 
@@ -351,6 +357,29 @@ export default function AttendanceMembersPage() {
                 }}
               />
             </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
+                부서
+              </label>
+              <select
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 13,
+                }}
+              >
+                <option value="">선택 안 함</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button
@@ -455,6 +484,17 @@ export default function AttendanceMembersPage() {
                     borderBottom: "1px solid #e5e7eb",
                   }}
                 >
+                  부서
+                </th>
+                <th
+                  style={{
+                    padding: "12px",
+                    textAlign: "center",
+                    fontWeight: 600,
+                    color: "#374151",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
                   작업
                 </th>
               </tr>
@@ -463,7 +503,7 @@ export default function AttendanceMembersPage() {
               {members.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     style={{
                       padding: "40px",
                       textAlign: "center",
@@ -488,6 +528,9 @@ export default function AttendanceMembersPage() {
                       </td>
                       <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
                         {age !== null ? `${age}세` : "-"}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
+                        {member.department || "-"}
                       </td>
                       <td style={{ padding: "12px", textAlign: "center" }}>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>

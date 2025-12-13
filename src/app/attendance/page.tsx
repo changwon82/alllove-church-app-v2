@@ -10,6 +10,7 @@ type AttendanceMember = {
   name: string;
   gender: string | null;
   birth_date: string | null;
+  department: string | null;
   created_at: string;
 };
 
@@ -21,6 +22,13 @@ type AttendanceRecord = {
   created_at: string;
 };
 
+type Profile = {
+  id: string;
+  full_name: string | null;
+  department: string | null;
+  position: string | null;
+};
+
 const departments = ["유초등부", "아동부", "중고등부", "청년부", "장년부", "찬양팀", "안내팀"];
 
 export default function AttendancePage() {
@@ -29,6 +37,7 @@ export default function AttendancePage() {
   const [hasPermission, setHasPermission] = useState(false);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
   const [records, setRecords] = useState<Record<string, Record<string, boolean>>>({});
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentWeekDates, setCurrentWeekDates] = useState<string[]>([]);
 
   // 이번 주일 날짜들 계산 (일요일 기준)
@@ -103,6 +112,19 @@ export default function AttendancePage() {
           setMembers((membersData as AttendanceMember[]) || []);
         }
 
+        // 프로필 정보 불러오기 (부서별 담당자 확인용)
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, full_name, department, position")
+          .not("department", "is", null)
+          .eq("approved", true);
+
+        if (profilesError) {
+          console.error("프로필 조회 에러:", profilesError);
+        } else {
+          setProfiles((profilesData as Profile[]) || []);
+        }
+
         // 이번 주 출석 기록 불러오기
         if (currentWeekDates.length > 0) {
           const { data: recordsData, error: recordsError } = await supabase
@@ -140,22 +162,11 @@ export default function AttendancePage() {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-    // 오늘 출석률
-    let todayAttended = 0;
-    let todayTotal = 0;
-    members.forEach((member) => {
-      if (records[member.id]?.[todayStr] !== undefined) {
-        todayTotal++;
-        if (records[member.id][todayStr]) {
-          todayAttended++;
-        }
-      }
-    });
-    const todayRate = todayTotal > 0 ? Math.round((todayAttended / todayTotal) * 100) : 0;
-
     // 이번 주 평균 출석률
     let weekTotalAttended = 0;
     let weekTotalDays = 0;
+    const sundayDate = currentWeekDates[0]; // 일요일 날짜
+
     currentWeekDates.forEach((date) => {
       let dateAttended = 0;
       let dateTotal = 0;
@@ -174,46 +185,51 @@ export default function AttendancePage() {
     });
     const weekAvgRate = weekTotalDays > 0 ? Math.round((weekTotalAttended / weekTotalDays) * 100) : 0;
 
-    // 부서별 통계 (출석체크 대상자에는 부서 정보가 없으므로, 전체 통계만 제공)
-    const byDepartment: Record<string, { total: number; todayAttended: number; todayTotal: number }> = {};
-    departments.forEach((dept) => {
-      byDepartment[dept] = {
-        total: 0,
-        todayAttended: 0,
-        todayTotal: 0,
-      };
-    });
+    // 부서별 통계
+    const byDepartment: Record<string, { 
+      total: number; 
+      attended: number; 
+      checked: number;
+      manager: { name: string; position: string | null } | null;
+    }> = {};
 
-    // 일일별 출석 통계
-    const dailyStats = currentWeekDates.map((date) => {
-      let dateAttended = 0;
-      let dateTotal = 0;
-      members.forEach((member) => {
-        if (records[member.id]?.[date] !== undefined) {
-          dateTotal++;
-          if (records[member.id][date]) {
-            dateAttended++;
+    departments.forEach((dept) => {
+      // 해당 부서의 출석체크 대상자 수
+      const deptMembers = members.filter((m) => m.department === dept);
+      const total = deptMembers.length;
+
+      // 일요일 기준 출석 체크된 인원 수
+      let checked = 0;
+      let attended = 0;
+      deptMembers.forEach((member) => {
+        if (records[member.id]?.[sundayDate] !== undefined) {
+          checked++;
+          if (records[member.id][sundayDate]) {
+            attended++;
           }
         }
       });
-      return {
-        date,
-        attended: dateAttended,
-        total: dateTotal,
-        rate: dateTotal > 0 ? Math.round((dateAttended / dateTotal) * 100) : 0,
+
+      // 해당 부서의 담당자 찾기 (첫 번째 회원을 담당자로 간주)
+      const deptProfiles = profiles.filter((p) => p.department === dept && p.full_name);
+      const manager = deptProfiles.length > 0
+        ? { name: deptProfiles[0].full_name || "", position: deptProfiles[0].position }
+        : null;
+
+      byDepartment[dept] = {
+        total,
+        attended,
+        checked,
+        manager,
       };
     });
 
     return {
       totalMembers,
-      todayAttended,
-      todayTotal,
-      todayRate,
       weekAvgRate,
-      dailyStats,
       byDepartment,
     };
-  }, [members, records, currentWeekDates]);
+  }, [members, records, currentWeekDates, profiles]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -258,6 +274,8 @@ export default function AttendancePage() {
     );
   }
 
+  const sundayDate = currentWeekDates[0];
+
   return (
     <div>
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -266,7 +284,7 @@ export default function AttendancePage() {
             출석체크 통계
           </h1>
           <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
-            이번 주일 ({currentWeekDates[0]} ~ {currentWeekDates[6]})
+            이번 주일 ({sundayDate} ~ {currentWeekDates[6]})
           </p>
         </div>
         <Link
@@ -309,67 +327,17 @@ export default function AttendancePage() {
             border: "1px solid #e5e7eb",
           }}
         >
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>오늘 출석률</div>
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
-            {stats.todayRate}%
-          </div>
-          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
-            {stats.todayAttended}/{stats.todayTotal}명
-          </div>
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            padding: "16px",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주 평균 출석률</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>
             {stats.weekAvgRate}%
           </div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+            주일예배 평균
+          </div>
         </div>
       </div>
 
-      {/* 일별 출석 통계 */}
-      <div
-        style={{
-          backgroundColor: "#ffffff",
-          borderRadius: 8,
-          padding: "16px",
-          border: "1px solid #e5e7eb",
-          marginBottom: 16,
-        }}
-      >
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>일별 출석 통계</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
-          {stats.dailyStats.map((day) => (
-            <div
-              key={day.date}
-              style={{
-                padding: "12px",
-                borderRadius: 6,
-                backgroundColor: "#f9fafb",
-                border: "1px solid #e5e7eb",
-              }}
-            >
-              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
-                {formatDate(day.date)}
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-                {day.rate}%
-              </div>
-              <div style={{ fontSize: 11, color: "#9ca3af" }}>
-                {day.attended}/{day.total}명
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 부서별 체크 */}
+      {/* 부서별 출석체크 */}
       <div
         style={{
           backgroundColor: "#ffffff",
@@ -378,36 +346,75 @@ export default function AttendancePage() {
           border: "1px solid #e5e7eb",
         }}
       >
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>부서별 출석체크</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-          {departments.map((dept) => (
-            <Link
-              key={dept}
-              href={`/attendance/${encodeURIComponent(dept)}`}
-              style={{
-                padding: "16px",
-                borderRadius: 6,
-                border: "1px solid #e5e7eb",
-                backgroundColor: "#ffffff",
-                textDecoration: "none",
-                display: "block",
-                transition: "all 0.2s ease",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "#3b82f6";
-                e.currentTarget.style.backgroundColor = "#f0f9ff";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "#e5e7eb";
-                e.currentTarget.style.backgroundColor = "#ffffff";
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", textAlign: "center" }}>
-                {dept}
-              </div>
-            </Link>
-          ))}
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>부서별 출석 현황</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+          {departments.map((dept) => {
+            const deptStats = stats.byDepartment[dept];
+            const isComplete = deptStats.checked === deptStats.total && deptStats.total > 0;
+            const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+
+            return (
+              <Link
+                key={dept}
+                href={`/attendance/${encodeURIComponent(dept)}`}
+                style={{
+                  padding: "16px",
+                  borderRadius: 8,
+                  border: isComplete ? "2px solid #10b981" : "1px solid #e5e7eb",
+                  backgroundColor: isComplete ? "#f0fdf4" : "#ffffff",
+                  textDecoration: "none",
+                  display: "block",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#3b82f6";
+                  e.currentTarget.style.backgroundColor = "#f0f9ff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = isComplete ? "#10b981" : "#e5e7eb";
+                  e.currentTarget.style.backgroundColor = isComplete ? "#f0fdf4" : "#ffffff";
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937" }}>
+                      {dept}
+                    </div>
+                    {deptStats.manager && (
+                      <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                        담당: {deptStats.manager.name}
+                        {deptStats.manager.position && ` (${deptStats.manager.position})`}
+                      </div>
+                    )}
+                  </div>
+                  {isComplete && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#10b981",
+                        backgroundColor: "#d1fae5",
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        fontWeight: 500,
+                      }}
+                    >
+                      완료
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
+                    {deptStats.attended}/{deptStats.total}명
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>
+                    출석률 {rate}%
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

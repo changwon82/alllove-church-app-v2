@@ -12,10 +12,14 @@ CREATE TABLE IF NOT EXISTS attendance_members (
   name TEXT NOT NULL,
   gender TEXT, -- '남' 또는 '여'
   birth_date DATE,
+  department TEXT, -- 부서명
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- attendance_members 테이블에 department 컬럼 추가 (기존 테이블이 있다면)
+-- ALTER TABLE attendance_members ADD COLUMN IF NOT EXISTS department TEXT;
 
 -- 3. 출석 기록 테이블 생성
 CREATE TABLE IF NOT EXISTS attendance_records (

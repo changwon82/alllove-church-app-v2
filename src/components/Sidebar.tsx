@@ -32,6 +32,7 @@ export default function Sidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [hasAttendancePermission, setHasAttendancePermission] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -41,12 +42,13 @@ export default function Sidebar() {
       if (user) {
         const { data } = await supabase
           .from("profiles")
-          .select("role, attendance_permission")
+          .select("role, attendance_permission, full_name")
           .eq("id", user.id)
           .maybeSingle();
         const isAdminUser = data?.role === "admin";
         setIsAdmin(isAdminUser);
         setHasAttendancePermission(isAdminUser || data?.attendance_permission === true);
+        setUserName(data?.full_name || null);
       }
     };
     checkAdmin();
@@ -75,7 +77,6 @@ export default function Sidebar() {
 
   const menuItems: MenuItem[] = [
     { label: "홈", path: "/", icon: getIcon("홈") },
-    { label: "내 프로필", path: "/profile", icon: getIcon("내 프로필") },
     { label: "성경일독365일", path: "/bible-reading", icon: getIcon("성경일독365일") },
     ...(hasAttendancePermission
       ? [{ label: "출석체크", path: "/attendance", icon: getIcon("출석체크") }]
@@ -127,7 +128,7 @@ export default function Sidebar() {
             <path d="M3 12h18M3 6h18M3 18h18" />
           </svg>
           <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            교회 관리 시스템
+            다애공동체
           </span>
         </button>
       )}
@@ -167,18 +168,126 @@ export default function Sidebar() {
         }}
       >
         {/* 헤더 */}
-        <div style={{ padding: isMobile ? "16px 12px" : "20px 16px", flexShrink: 0 }}>
+        <div style={{ padding: isMobile ? "24px 16px" : "28px 20px", flexShrink: 0, textAlign: "center" }}>
           <h2
             style={{
-              fontSize: isMobile ? 16 : 18,
+              fontSize: isMobile ? 18 : 20,
               fontWeight: 700,
               color: "#ffffff",
               margin: 0,
+              marginBottom: 6,
               letterSpacing: "-0.3px",
             }}
           >
-            교회 관리 시스템
+            다애공동체
           </h2>
+          <div
+            style={{
+              fontSize: isMobile ? 12 : 13,
+              color: "#9ca3af",
+              fontWeight: 400,
+              marginBottom: 20,
+            }}
+          >
+            AllLove Church
+          </div>
+
+          {/* 이름 표시 */}
+          {userName && (
+            <div
+              style={{
+                fontSize: isMobile ? 13 : 14,
+                color: "#ffffff",
+                fontWeight: 500,
+                marginBottom: 16,
+                padding: "8px 0",
+              }}
+            >
+              하나님의 사람 {userName}
+            </div>
+          )}
+
+          {/* 내 프로필 & 로그아웃 */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => {
+                router.push("/profile");
+                if (isMobile) {
+                  setIsOpen(false);
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: isMobile ? "10px 8px" : "12px 12px",
+                borderRadius: 8,
+                border: "1px solid #374151",
+                background: pathname === "/profile" ? "#3b82f6" : "transparent",
+                color: pathname === "/profile" ? "#ffffff" : "#d1d5db",
+                fontSize: isMobile ? 11 : 12,
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                whiteSpace: "nowrap",
+                minWidth: 0,
+              }}
+              onMouseEnter={(e) => {
+                if (pathname !== "/profile") {
+                  e.currentTarget.style.background = "#374151";
+                  e.currentTarget.style.borderColor = "#4b5563";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (pathname !== "/profile") {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.borderColor = "#374151";
+                }
+              }}
+            >
+              <span style={{ fontSize: isMobile ? 13 : 14, flexShrink: 0 }}>{getIcon("내 프로필")}</span>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>내 프로필</span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              style={{
+                flex: 1,
+                padding: isMobile ? "10px 8px" : "12px 12px",
+                borderRadius: 8,
+                border: "1px solid #7f1d1d",
+                background: "transparent",
+                color: "#ef4444",
+                fontSize: isMobile ? 11 : 12,
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 4,
+                whiteSpace: "nowrap",
+                minWidth: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#7f1d1d";
+                e.currentTarget.style.borderColor = "#991b1b";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.borderColor = "#7f1d1d";
+              }}
+            >
+              <svg width={isMobile ? 13 : 14} height={isMobile ? 13 : 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>로그아웃</span>
+            </button>
+          </div>
         </div>
 
         {/* 메뉴 */}
@@ -196,12 +305,13 @@ export default function Sidebar() {
                 }}
                 style={{
                   width: "100%",
-                  padding: isMobile ? "10px 12px" : "12px 16px",
+                  padding: isMobile ? "5px 12px" : "6px 16px",
                   textAlign: "left",
                   background: isActive ? "#3b82f6" : "transparent",
                   color: isActive ? "#ffffff" : "#d1d5db",
-                  fontSize: isMobile ? 13 : 14,
-                  fontWeight: isActive ? 600 : 400,
+                  fontSize: "inherit",
+                  fontWeight: "normal",
+                  fontFamily: "inherit",
                   border: "none",
                   borderRadius: 8,
                   cursor: "pointer",
@@ -231,41 +341,6 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* 로그아웃 버튼 */}
-        <div style={{ padding: isMobile ? "12px" : "16px", borderTop: "1px solid #374151", flexShrink: 0 }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              width: "100%",
-              padding: isMobile ? "8px 12px" : "10px 16px",
-              borderRadius: 8,
-              border: "none",
-              background: "transparent",
-              color: "#ef4444",
-              fontSize: isMobile ? 12 : 13,
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: isMobile ? 6 : 8,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#7f1d1d";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <svg width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            로그아웃
-          </button>
-        </div>
       </aside>
     </>
   );
