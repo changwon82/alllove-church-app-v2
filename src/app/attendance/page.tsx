@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
 type AttendanceMember = {
   id: string;
@@ -15,27 +16,28 @@ type AttendanceMember = {
 type AttendanceRecord = {
   id: string;
   member_id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   attended: boolean;
   created_at: string;
 };
 
+const departments = ["유초등부", "아동부", "중고등부", "청년부", "장년부", "찬양팀", "안내팀"];
+
 export default function AttendancePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
-  const [records, setRecords] = useState<Record<string, Record<string, boolean>>>({}); // {member_id: {date: attended}}
+  const [records, setRecords] = useState<Record<string, Record<string, boolean>>>({});
   const [currentWeekDates, setCurrentWeekDates] = useState<string[]>([]);
 
   // 이번 주일 날짜들 계산 (일요일 기준)
   useEffect(() => {
     const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = 일요일, 1 = 월요일, ...
+    const dayOfWeek = today.getDay();
     const sunday = new Date(today);
-    sunday.setDate(today.getDate() - dayOfWeek); // 이번 주 일요일
-    
+    sunday.setDate(today.getDate() - dayOfWeek);
+
     const dates: string[] = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(sunday);
@@ -87,7 +89,6 @@ export default function AttendancePage() {
           return;
         }
 
-        setIsAdmin(isAdminUser);
         setHasPermission(true);
 
         // 출석체크 대상자 목록 불러오기
@@ -133,57 +134,86 @@ export default function AttendancePage() {
     loadData();
   }, [router, currentWeekDates]);
 
-  const toggleAttendance = async (memberId: string, date: string) => {
-    const currentStatus = records[memberId]?.[date] || false;
-    const newStatus = !currentStatus;
+  // 통계 계산
+  const stats = useMemo(() => {
+    const totalMembers = members.length;
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-    try {
-      const { error } = await supabase.from("attendance_records").upsert(
-        {
-          member_id: memberId,
-          date: date,
-          attended: newStatus,
-        },
-        {
-          onConflict: "member_id,date",
+    // 오늘 출석률
+    let todayAttended = 0;
+    let todayTotal = 0;
+    members.forEach((member) => {
+      if (records[member.id]?.[todayStr] !== undefined) {
+        todayTotal++;
+        if (records[member.id][todayStr]) {
+          todayAttended++;
         }
-      );
-
-      if (error) {
-        console.error("출석 기록 저장 에러:", error);
-        alert("출석 기록 저장 중 오류가 발생했습니다.");
-        return;
       }
+    });
+    const todayRate = todayTotal > 0 ? Math.round((todayAttended / todayTotal) * 100) : 0;
 
-      // 로컬 상태 업데이트
-      setRecords((prev) => ({
-        ...prev,
-        [memberId]: {
-          ...(prev[memberId] || {}),
-          [date]: newStatus,
-        },
-      }));
-    } catch (err: any) {
-      console.error("출석 체크 에러:", err);
-      alert("출석 체크 중 오류가 발생했습니다.");
-    }
-  };
-
-  const calculateAge = (birthDate: string | null): number | null => {
-    if (!birthDate) return null;
-    try {
-      const birth = new Date(birthDate);
-      const today = new Date();
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--;
+    // 이번 주 평균 출석률
+    let weekTotalAttended = 0;
+    let weekTotalDays = 0;
+    currentWeekDates.forEach((date) => {
+      let dateAttended = 0;
+      let dateTotal = 0;
+      members.forEach((member) => {
+        if (records[member.id]?.[date] !== undefined) {
+          dateTotal++;
+          if (records[member.id][date]) {
+            dateAttended++;
+          }
+        }
+      });
+      if (dateTotal > 0) {
+        weekTotalAttended += dateAttended;
+        weekTotalDays += dateTotal;
       }
-      return age;
-    } catch {
-      return null;
-    }
-  };
+    });
+    const weekAvgRate = weekTotalDays > 0 ? Math.round((weekTotalAttended / weekTotalDays) * 100) : 0;
+
+    // 부서별 통계 (출석체크 대상자에는 부서 정보가 없으므로, 전체 통계만 제공)
+    const byDepartment: Record<string, { total: number; todayAttended: number; todayTotal: number }> = {};
+    departments.forEach((dept) => {
+      byDepartment[dept] = {
+        total: 0,
+        todayAttended: 0,
+        todayTotal: 0,
+      };
+    });
+
+    // 일일별 출석 통계
+    const dailyStats = currentWeekDates.map((date) => {
+      let dateAttended = 0;
+      let dateTotal = 0;
+      members.forEach((member) => {
+        if (records[member.id]?.[date] !== undefined) {
+          dateTotal++;
+          if (records[member.id][date]) {
+            dateAttended++;
+          }
+        }
+      });
+      return {
+        date,
+        attended: dateAttended,
+        total: dateTotal,
+        rate: dateTotal > 0 ? Math.round((dateAttended / dateTotal) * 100) : 0,
+      };
+    });
+
+    return {
+      totalMembers,
+      todayAttended,
+      todayTotal,
+      todayRate,
+      weekAvgRate,
+      dailyStats,
+      byDepartment,
+    };
+  }, [members, records, currentWeekDates]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -233,13 +263,13 @@ export default function AttendancePage() {
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
-            출석체크
+            출석체크 통계
           </h1>
           <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
             이번 주일 ({currentWeekDates[0]} ~ {currentWeekDates[6]})
           </p>
         </div>
-        <a
+        <Link
           href="/attendance/members"
           style={{
             padding: "8px 16px",
@@ -254,187 +284,132 @@ export default function AttendancePage() {
           }}
         >
           명단 관리
-        </a>
+        </Link>
       </div>
 
+      {/* 주요 통계 카드 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: 8,
+            padding: "16px",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: 8,
+            padding: "16px",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>오늘 출석률</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
+            {stats.todayRate}%
+          </div>
+          <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+            {stats.todayAttended}/{stats.todayTotal}명
+          </div>
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: 8,
+            padding: "16px",
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주 평균 출석률</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: "#3b82f6" }}>
+            {stats.weekAvgRate}%
+          </div>
+        </div>
+      </div>
+
+      {/* 일별 출석 통계 */}
       <div
         style={{
           backgroundColor: "#ffffff",
           borderRadius: 8,
+          padding: "16px",
           border: "1px solid #e5e7eb",
-          overflow: "hidden",
+          marginBottom: 16,
         }}
       >
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ backgroundColor: "#f9fafb" }}>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "left",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    position: "sticky",
-                    left: 0,
-                    backgroundColor: "#f9fafb",
-                    zIndex: 10,
-                  }}
-                >
-                  이름
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    minWidth: 60,
-                  }}
-                >
-                  성별
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    minWidth: 80,
-                  }}
-                >
-                  생년월일
-                </th>
-                <th
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    color: "#374151",
-                    borderBottom: "1px solid #e5e7eb",
-                    minWidth: 60,
-                  }}
-                >
-                  나이
-                </th>
-                {currentWeekDates.map((date) => (
-                  <th
-                    key={date}
-                    style={{
-                      padding: "12px",
-                      textAlign: "center",
-                      fontWeight: 600,
-                      color: "#374151",
-                      borderBottom: "1px solid #e5e7eb",
-                      minWidth: 100,
-                    }}
-                  >
-                    {formatDate(date)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {members.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4 + currentWeekDates.length}
-                    style={{
-                      padding: "40px",
-                      textAlign: "center",
-                      color: "#9ca3af",
-                      fontSize: 14,
-                    }}
-                  >
-                    출석체크 대상자가 없습니다. 명단 관리에서 추가해주세요.
-                  </td>
-                </tr>
-              ) : (
-                members.map((member) => {
-                  const age = calculateAge(member.birth_date);
-                  return (
-                    <tr
-                      key={member.id}
-                      style={{
-                        borderBottom: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <td
-                        style={{
-                          padding: "12px",
-                          fontWeight: 500,
-                          color: "#1f2937",
-                          position: "sticky",
-                          left: 0,
-                          backgroundColor: "#ffffff",
-                          zIndex: 5,
-                        }}
-                      >
-                        {member.name}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {member.gender || "-"}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {member.birth_date
-                          ? new Date(member.birth_date).toLocaleDateString("ko-KR")
-                          : "-"}
-                      </td>
-                      <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
-                        {age !== null ? `${age}세` : "-"}
-                      </td>
-                      {currentWeekDates.map((date) => {
-                        const attended = records[member.id]?.[date] || false;
-                        return (
-                          <td
-                            key={date}
-                            style={{
-                              padding: "12px",
-                              textAlign: "center",
-                            }}
-                          >
-                            <button
-                              onClick={() => toggleAttendance(member.id, date)}
-                              style={{
-                                padding: "6px 12px",
-                                borderRadius: 4,
-                                border: "1px solid #e5e7eb",
-                                background: attended ? "#10b981" : "#ffffff",
-                                color: attended ? "#ffffff" : "#374151",
-                                fontSize: 12,
-                                fontWeight: 500,
-                                cursor: "pointer",
-                                transition: "all 0.2s ease",
-                                minWidth: 60,
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!attended) {
-                                  e.currentTarget.style.background = "#f3f4f6";
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!attended) {
-                                  e.currentTarget.style.background = "#ffffff";
-                                }
-                              }}
-                            >
-                              {attended ? "출석" : "결석"}
-                            </button>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>일별 출석 통계</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
+          {stats.dailyStats.map((day) => (
+            <div
+              key={day.date}
+              style={{
+                padding: "12px",
+                borderRadius: 6,
+                backgroundColor: "#f9fafb",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>
+                {formatDate(day.date)}
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
+                {day.rate}%
+              </div>
+              <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                {day.attended}/{day.total}명
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 부서별 체크 */}
+      <div
+        style={{
+          backgroundColor: "#ffffff",
+          borderRadius: 8,
+          padding: "16px",
+          border: "1px solid #e5e7eb",
+        }}
+      >
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>부서별 출석체크</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+          {departments.map((dept) => (
+            <Link
+              key={dept}
+              href={`/attendance/${encodeURIComponent(dept)}`}
+              style={{
+                padding: "16px",
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                backgroundColor: "#ffffff",
+                textDecoration: "none",
+                display: "block",
+                transition: "all 0.2s ease",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#3b82f6";
+                e.currentTarget.style.backgroundColor = "#f0f9ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#e5e7eb";
+                e.currentTarget.style.backgroundColor = "#ffffff";
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1f2937", textAlign: "center" }}>
+                {dept}
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>
   );
 }
-
