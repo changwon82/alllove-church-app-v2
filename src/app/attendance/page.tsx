@@ -29,7 +29,7 @@ type Profile = {
   position: string | null;
 };
 
-const departments = ["유초등부", "아동부", "중고등부", "청년부", "장년부", "찬양팀", "안내팀"];
+const departments = ["유초등부", "유치부", "청소년부", "청년부"];
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -185,6 +185,12 @@ export default function AttendancePage() {
     });
     const weekAvgRate = weekTotalDays > 0 ? Math.round((weekTotalAttended / weekTotalDays) * 100) : 0;
 
+    // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
+    const deptMapping: Record<string, string> = {
+      "아동부": "유치부",
+      "중고등부": "청소년부",
+    };
+
     // 부서별 통계
     const byDepartment: Record<string, { 
       total: number; 
@@ -194,8 +200,11 @@ export default function AttendancePage() {
     }> = {};
 
     departments.forEach((dept) => {
-      // 해당 부서의 출석체크 대상자 수
-      const deptMembers = members.filter((m) => m.department === dept);
+      // 해당 부서의 출석체크 대상자 수 (매핑된 부서명도 고려)
+      const deptMembers = members.filter((m) => {
+        const mappedDept = deptMapping[m.department || ""] || m.department;
+        return mappedDept === dept || m.department === dept;
+      });
       const total = deptMembers.length;
 
       // 일요일 기준 출석 체크된 인원 수
@@ -210,8 +219,12 @@ export default function AttendancePage() {
         }
       });
 
-      // 해당 부서의 담당자 찾기 (첫 번째 회원을 담당자로 간주)
-      const deptProfiles = profiles.filter((p) => p.department === dept && p.full_name);
+      // 해당 부서의 담당자 찾기 (매핑된 부서명도 고려)
+      const deptProfiles = profiles.filter((p) => {
+        if (!p.department) return false;
+        const mappedDept = deptMapping[p.department] || p.department;
+        return (mappedDept === dept || p.department === dept) && p.full_name;
+      });
       const manager = deptProfiles.length > 0
         ? { name: deptProfiles[0].full_name || "", position: deptProfiles[0].position }
         : null;
@@ -337,7 +350,7 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* 부서별 출석체크 */}
+      {/* 교회학교 출석현황 */}
       <div
         style={{
           backgroundColor: "#ffffff",
@@ -346,11 +359,10 @@ export default function AttendancePage() {
           border: "1px solid #e5e7eb",
         }}
       >
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>부서별 출석 현황</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>교회학교 출석현황</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {departments.map((dept) => {
             const deptStats = stats.byDepartment[dept];
-            const isComplete = deptStats.checked === deptStats.total && deptStats.total > 0;
             const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
 
             return (
@@ -358,12 +370,15 @@ export default function AttendancePage() {
                 key={dept}
                 href={`/attendance/${encodeURIComponent(dept)}`}
                 style={{
-                  padding: "16px",
+                  padding: "12px 16px",
                   borderRadius: 8,
-                  border: isComplete ? "2px solid #10b981" : "1px solid #e5e7eb",
-                  backgroundColor: isComplete ? "#f0fdf4" : "#ffffff",
+                  border: "1px solid #e5e7eb",
+                  backgroundColor: "#ffffff",
                   textDecoration: "none",
-                  display: "block",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 16,
                   transition: "all 0.2s ease",
                   cursor: "pointer",
                 }}
@@ -372,44 +387,29 @@ export default function AttendancePage() {
                   e.currentTarget.style.backgroundColor = "#f0f9ff";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = isComplete ? "#10b981" : "#e5e7eb";
-                  e.currentTarget.style.backgroundColor = isComplete ? "#f0fdf4" : "#ffffff";
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                  e.currentTarget.style.backgroundColor = "#ffffff";
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#1f2937" }}>
-                      {dept}
-                    </div>
-                    {deptStats.manager && (
-                      <div style={{ fontSize: 12, color: "#9ca3af" }}>
-                        담당: {deptStats.manager.name}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: "#1f2937", minWidth: 70 }}>
+                    {dept}
+                  </div>
+                  <div style={{ fontSize: 14, color: "#6b7280", minWidth: 0, flex: 1 }}>
+                    {deptStats.manager ? (
+                      <>
+                        {deptStats.manager.name}
                         {deptStats.manager.position && ` ${deptStats.manager.position}`}
-                      </div>
+                      </>
+                    ) : (
+                      <span style={{ color: "#9ca3af" }}>-</span>
                     )}
                   </div>
-                  {isComplete && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: "#10b981",
-                        backgroundColor: "#d1fae5",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontWeight: 500,
-                      }}
-                    >
-                      완료
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937", marginBottom: 4 }}>
+                  <div style={{ fontSize: 14, color: "#1f2937", minWidth: 80 }}>
                     {deptStats.attended}/{deptStats.total}명
                   </div>
-                  <div style={{ fontSize: 13, color: "#6b7280" }}>
-                    출석률 {rate}%
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#10b981", minWidth: 60, textAlign: "right" }}>
+                    {rate}%
                   </div>
                 </div>
               </Link>

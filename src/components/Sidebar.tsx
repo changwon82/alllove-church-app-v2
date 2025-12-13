@@ -231,7 +231,7 @@ export default function Sidebar() {
                 marginBottom: 20,
               }}
             >
-              AllLove Church
+              AllLove Church Community
             </div>
 
             {/* 이름 표시 */}
