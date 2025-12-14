@@ -728,7 +728,7 @@ export default function AttendancePage() {
                       key={member.id}
                       onClick={() => toggleAttendance(member.id, sundayDate)}
                       style={{
-                        padding: "2px 0.5px",
+                        padding: "2px 2px",
                         borderRadius: 8,
                         border: `1px solid ${attended ? "#3b82f6" : "#e5e7eb"}`,
                         background: attended ? "#3b82f6" : "#ffffff",
@@ -737,7 +737,6 @@ export default function AttendancePage() {
                         fontWeight: 500,
                         cursor: "pointer",
                         transition: "all 0.2s ease",
-                        minWidth: 100,
                       }}
                       onMouseEnter={(e) => {
                         if (!attended) {
