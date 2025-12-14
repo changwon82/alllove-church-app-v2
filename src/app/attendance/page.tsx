@@ -210,8 +210,8 @@ export default function AttendancePage() {
     useEffect(() => {
       if (anchorElement) {
         const rect = anchorElement.getBoundingClientRect();
-        const calendarWidth = 320;
-        const calendarHeight = 400; // 대략적인 높이
+        const calendarWidth = 240; // 320 * 0.75
+        const calendarHeight = 300; // 400 * 0.75
         const padding = 10;
         
         let top = rect.bottom + padding;
@@ -260,9 +260,9 @@ export default function AttendancePage() {
           style={{
             backgroundColor: "#ffffff",
             borderRadius: 16,
-            padding: "20px",
+            padding: "16px", // 20px * 0.8 (약간만 줄임)
             width: "100%",
-            maxWidth: 320,
+            maxWidth: 240, // 320 * 0.75
             boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
             position: calendarPosition ? "absolute" : "relative",
             top: calendarPosition ? `${calendarPosition.top}px` : "auto",
@@ -271,7 +271,7 @@ export default function AttendancePage() {
           onClick={(e) => e.stopPropagation()}
         >
           {/* 헤더 */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <button
               onClick={prevMonth}
               style={{
@@ -351,7 +351,7 @@ export default function AttendancePage() {
           </div>
           
           {/* 요일 헤더 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 6 }}>
             {weekDays.map((day) => (
               <div
                 key={day}
@@ -360,7 +360,7 @@ export default function AttendancePage() {
                   fontSize: 12,
                   fontWeight: 600,
                   color: day === "일" ? "#ef4444" : day === "토" ? "#3b82f6" : "#6b7280",
-                  padding: "8px 4px",
+                  padding: "6px 3px",
                 }}
               >
                 {day}
@@ -369,7 +369,7 @@ export default function AttendancePage() {
           </div>
           
           {/* 날짜 그리드 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
             {days.map((date, index) => {
               const isDisabled = isDateDisabled(date);
               const isSelected = isDateSelected(date);
@@ -425,7 +425,7 @@ export default function AttendancePage() {
           </div>
           
           {/* 닫기 버튼 */}
-          <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
             <button
               onClick={onClose}
               style={{
