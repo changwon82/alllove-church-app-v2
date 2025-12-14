@@ -527,6 +527,18 @@ export default function AttendanceMembersPage() {
                     fontWeight: 600,
                     color: "#374151",
                     borderBottom: "1px solid #e5e7eb",
+                    width: 50,
+                  }}
+                >
+                  번호
+                </th>
+                <th
+                  style={{
+                    padding: "12px",
+                    textAlign: "center",
+                    fontWeight: 600,
+                    color: "#374151",
+                    borderBottom: "1px solid #e5e7eb",
                   }}
                 >
                   부서
@@ -592,7 +604,7 @@ export default function AttendanceMembersPage() {
               {members.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: "40px",
                       textAlign: "center",
@@ -604,7 +616,7 @@ export default function AttendanceMembersPage() {
                   </td>
                 </tr>
               ) : (
-                members.map((member) => {
+                members.map((member, index) => {
                   const age = calculateAge(member.birth_date);
                   // 부서명 매핑
                   const deptMapping: Record<string, string> = {
@@ -616,6 +628,9 @@ export default function AttendanceMembersPage() {
                     : null;
                   return (
                     <tr key={member.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                      <td style={{ padding: "12px", textAlign: "center", color: "#6b7280", fontSize: 13 }}>
+                        {index + 1}
+                      </td>
                       <td style={{ padding: "12px", textAlign: "center", color: "#374151" }}>
                         {displayDepartment || "-"}
                       </td>
