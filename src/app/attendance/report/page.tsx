@@ -413,20 +413,20 @@ export default function AttendanceReportPage() {
           boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>부서</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>부서</label>
           <select
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
             disabled={!isAdmin && userDepartment !== null}
             style={{
-              padding: "10px 14px",
-              borderRadius: 8,
+              padding: "8px 12px",
+              borderRadius: 6,
               border: "1px solid #d1d5db",
-              fontSize: 14,
+              fontSize: 13,
               backgroundColor: "#ffffff",
               cursor: isAdmin || userDepartment === null ? "pointer" : "not-allowed",
-              minWidth: 130,
+              minWidth: 120,
               fontWeight: 500,
               color: "#1f2937",
               transition: "all 0.2s ease",
@@ -450,23 +450,23 @@ export default function AttendanceReportPage() {
           </select>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <label style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>연도</label>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 8,
-              border: "1px solid #d1d5db",
-              fontSize: 14,
-              backgroundColor: "#ffffff",
-              cursor: "pointer",
-              minWidth: 110,
-              fontWeight: 500,
-              color: "#1f2937",
-              transition: "all 0.2s ease",
-            }}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>연도</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #d1d5db",
+                  fontSize: 13,
+                  backgroundColor: "#ffffff",
+                  cursor: "pointer",
+                  minWidth: 100,
+                  fontWeight: 500,
+                  color: "#1f2937",
+                  transition: "all 0.2s ease",
+                }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "#3b82f6";
               e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
@@ -484,37 +484,36 @@ export default function AttendanceReportPage() {
           </select>
         </div>
 
-        {deptMembers.length > 0 && (
-          <div
-            style={{
-              fontSize: 14,
-              color: "#6b7280",
-              marginLeft: "auto",
-              padding: "8px 16px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: 8,
-              fontWeight: 500,
-            }}
-          >
-            총 <span style={{ color: "#3b82f6", fontWeight: 600 }}>{deptMembers.length}</span>명
-          </div>
-        )}
+            {deptMembers.length > 0 && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "#6b7280",
+                  marginLeft: "auto",
+                  padding: "6px 12px",
+                  backgroundColor: "#f3f4f6",
+                  borderRadius: 6,
+                  fontWeight: 500,
+                }}
+              >
+                총 <span style={{ color: "#3b82f6", fontWeight: 600 }}>{deptMembers.length}</span>명
+              </div>
+            )}
       </div>
 
-      {/* 리포트 테이블 */}
-      {selectedDepartment && (
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 12,
-            border: "1px solid #e5e7eb",
-            overflow: "hidden",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-            width: "100%",
-            maxWidth: "100%",
-          }}
-        >
-          <div style={{ display: "flex", position: "relative", maxHeight: "80vh", width: "100%" }}>
+          {/* 리포트 테이블 */}
+          {selectedDepartment && (
+            <div
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                overflow: "hidden",
+                width: "100%",
+                maxWidth: "100%",
+              }}
+            >
+              <div style={{ display: "flex", position: "relative", maxHeight: "75vh", width: "100%" }}>
             {/* 고정 컬럼 (번호, 이름) */}
             <div
               ref={fixedTableRef}
@@ -523,45 +522,36 @@ export default function AttendanceReportPage() {
                 borderRight: "1px solid #e2e8f0",
                 zIndex: 10,
                 overflowY: "auto",
-                maxHeight: "80vh",
+                maxHeight: "75vh",
               }}
             >
-              <table style={{ borderCollapse: "collapse", fontSize: 13, tableLayout: "fixed", borderSpacing: 0 }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed", borderSpacing: 0 }}>
                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-                  <tr style={{ backgroundColor: "#f8fafc", height: "48px" }}>
+                  <tr style={{ backgroundColor: "#f9fafb" }}>
                     <th
                       style={{
-                        padding: "14px 10px",
+                        padding: "10px 12px",
                         textAlign: "center",
-                        fontWeight: 700,
-                        color: "#1f2937",
-                        border: "1px solid #e2e8f0",
-                        backgroundColor: "#f8fafc",
-                        width: "60px",
+                        fontWeight: 600,
+                        color: "#6b7280",
+                        border: "1px solid #e5e7eb",
+                        backgroundColor: "#f9fafb",
+                        width: "50px",
                         fontSize: 12,
-                        letterSpacing: "0.5px",
-                        lineHeight: "20px",
-                        height: "48px",
-                        verticalAlign: "middle",
                       }}
                     >
                       번호
                     </th>
                     <th
                       style={{
-                        padding: "14px 16px",
-                        textAlign: "center",
-                        fontWeight: 700,
-                        color: "#1f2937",
-                        border: "1px solid #e2e8f0",
+                        padding: "10px 12px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                        color: "#6b7280",
+                        border: "1px solid #e5e7eb",
                         borderLeft: "none",
-                        backgroundColor: "#f8fafc",
-                        width: "120px",
+                        backgroundColor: "#f9fafb",
                         fontSize: 12,
-                        letterSpacing: "0.5px",
-                        lineHeight: "20px",
-                        height: "48px",
-                        verticalAlign: "middle",
                       }}
                     >
                       이름
@@ -574,11 +564,11 @@ export default function AttendanceReportPage() {
                       <td
                         colSpan={2}
                         style={{
-                          padding: "60px 20px",
+                          padding: "40px 20px",
                           textAlign: "center",
                           color: "#9ca3af",
                           fontSize: 14,
-                          border: "1px solid #e2e8f0",
+                          border: "1px solid #e5e7eb",
                           borderTop: "none",
                         }}
                       >
@@ -588,40 +578,34 @@ export default function AttendanceReportPage() {
                   ) : (
                     <>
                       {/* 출석률 행 */}
-                      <tr style={{ backgroundColor: "#eff6ff", height: "48px" }}>
+                      <tr style={{ backgroundColor: "#eff6ff" }}>
                         <td
                           style={{
-                            padding: "14px 10px",
+                            padding: "10px 12px",
                             textAlign: "center",
                             fontWeight: 700,
                             color: "#1e40af",
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid #e5e7eb",
                             borderTop: "none",
                             backgroundColor: "#eff6ff",
-                            borderBottom: "2px solid #e2e8f0",
+                            borderBottom: "2px solid #e5e7eb",
                             fontSize: 12,
-                            lineHeight: "20px",
-                            height: "48px",
-                            verticalAlign: "middle",
                           }}
                         >
                           -
                         </td>
                         <td
                           style={{
-                            padding: "14px 16px",
-                            textAlign: "center",
+                            padding: "10px 12px",
+                            textAlign: "left",
                             fontWeight: 700,
                             color: "#1e40af",
-                            border: "1px solid #e2e8f0",
+                            border: "1px solid #e5e7eb",
                             borderTop: "none",
                             borderLeft: "none",
                             backgroundColor: "#eff6ff",
-                            borderBottom: "2px solid #e2e8f0",
+                            borderBottom: "2px solid #e5e7eb",
                             fontSize: 12,
-                            lineHeight: "20px",
-                            height: "48px",
-                            verticalAlign: "middle",
                           }}
                         >
                           출석률
@@ -633,7 +617,6 @@ export default function AttendanceReportPage() {
                           key={member.id}
                           style={{
                             transition: "background-color 0.2s ease",
-                            height: "48px",
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.backgroundColor = "#f9fafb";
@@ -644,34 +627,26 @@ export default function AttendanceReportPage() {
                         >
                           <td
                             style={{
-                              padding: "14px 10px",
+                              padding: "10px 12px",
                               textAlign: "center",
-                              fontWeight: 500,
-                              color: "#64748b",
-                              border: "1px solid #e2e8f0",
+                              color: "#6b7280",
+                              border: "1px solid #e5e7eb",
                               borderTop: "none",
                               backgroundColor: "inherit",
                               fontSize: 13,
-                              lineHeight: "20px",
-                              height: "48px",
-                              verticalAlign: "middle",
                             }}
                           >
                             {index + 1}
                           </td>
                           <td
                             style={{
-                              padding: "14px 16px",
-                              fontWeight: 600,
+                              padding: "10px 12px",
                               color: "#1f2937",
-                              border: "1px solid #e2e8f0",
+                              border: "1px solid #e5e7eb",
                               borderTop: "none",
                               borderLeft: "none",
                               backgroundColor: "inherit",
-                              fontSize: 14,
-                              lineHeight: "20px",
-                              height: "48px",
-                              verticalAlign: "middle",
+                              fontSize: 13,
                             }}
                           >
                             {member.name}
@@ -691,31 +666,27 @@ export default function AttendanceReportPage() {
                 overflowX: "auto",
                 overflowY: "auto",
                 flex: 1,
-                maxHeight: "80vh",
+                maxHeight: "75vh",
                 width: 0, // flex: 1과 함께 사용하여 남은 공간 차지
               }}
             >
-              <table style={{ borderCollapse: "collapse", fontSize: 13, width: sundays.length > 0 ? `${sundays.length * 55}px` : "auto", tableLayout: "fixed", borderSpacing: 0 }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 12, width: sundays.length > 0 ? `${sundays.length * 45}px` : "auto", tableLayout: "fixed", borderSpacing: 0 }}>
                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-                  <tr style={{ backgroundColor: "#f8fafc", height: "48px" }}>
+                  <tr style={{ backgroundColor: "#f9fafb" }}>
                     {sundays.map((sunday) => (
                       <th
                         key={sunday}
                         style={{
-                          padding: "14px 6px",
+                          padding: "10px 8px",
                           textAlign: "center",
-                          fontWeight: 700,
-                          color: "#1f2937",
-                          border: "1px solid #e2e8f0",
+                          fontWeight: 600,
+                          color: "#6b7280",
+                          border: "1px solid #e5e7eb",
                           borderLeft: "none",
-                          backgroundColor: "#f8fafc",
-                          fontSize: 11,
-                          minWidth: "55px",
+                          backgroundColor: "#f9fafb",
+                          fontSize: 12,
+                          minWidth: "45px",
                           whiteSpace: "nowrap",
-                          letterSpacing: "0.3px",
-                          lineHeight: "20px",
-                          height: "48px",
-                          verticalAlign: "middle",
                         }}
                         title={sunday}
                       >
@@ -728,7 +699,7 @@ export default function AttendanceReportPage() {
                   {deptMembers.length === 0 ? null : (
                     <>
                       {/* 출석률 행 */}
-                      <tr style={{ backgroundColor: "#eff6ff", height: "48px" }}>
+                      <tr style={{ backgroundColor: "#eff6ff" }}>
                         {sundays.map((sunday) => {
                           const rate = getAttendanceRate(sunday);
                           const getColor = () => {
@@ -745,19 +716,16 @@ export default function AttendanceReportPage() {
                             <td
                               key={sunday}
                               style={{
-                                padding: "14px 6px",
+                                padding: "10px 8px",
                                 textAlign: "center",
                                 fontWeight: 700,
                                 color: getColor(),
                                 fontSize: 12,
-                                border: "1px solid #e2e8f0",
+                                border: "1px solid #e5e7eb",
                                 borderTop: "none",
                                 borderLeft: "none",
                                 backgroundColor: getBgColor(),
-                                borderBottom: "2px solid #e2e8f0",
-                                lineHeight: "20px",
-                                height: "48px",
-                                verticalAlign: "middle",
+                                borderBottom: "2px solid #e5e7eb",
                               }}
                             >
                               {rate}%
@@ -771,7 +739,6 @@ export default function AttendanceReportPage() {
                           key={member.id}
                           style={{
                             transition: "background-color 0.2s ease",
-                            height: "48px",
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.backgroundColor = "#f9fafb";
@@ -787,33 +754,27 @@ export default function AttendanceReportPage() {
                               <td
                                 key={sunday}
                                 style={{
-                                  padding: "14px 6px",
+                                  padding: "10px 8px",
                                   textAlign: "center",
                                   backgroundColor: attended
                                     ? "#d1fae5"
                                     : checked
                                     ? "#fee2e2"
                                     : "inherit",
-                                  border: "1px solid #e2e8f0",
+                                  border: "1px solid #e5e7eb",
                                   borderTop: "none",
                                   borderLeft: "none",
-                                  fontSize: 14,
-                                  fontWeight: attended ? 600 : 400,
+                                  fontSize: 13,
                                   color: attended ? "#059669" : checked ? "#dc2626" : "#9ca3af",
                                   transition: "all 0.15s ease",
-                                  lineHeight: "20px",
-                                  height: "48px",
-                                  verticalAlign: "middle",
                                 }}
                                 onMouseEnter={(e) => {
                                   if (checked) {
-                                    e.currentTarget.style.transform = "scale(1.1)";
-                                    e.currentTarget.style.fontSize = "16px";
+                                    e.currentTarget.style.opacity = "0.8";
                                   }
                                 }}
                                 onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform = "scale(1)";
-                                  e.currentTarget.style.fontSize = "14px";
+                                  e.currentTarget.style.opacity = "1";
                                 }}
                               >
                                 {checked ? (attended ? "✓" : "✗") : "-"}
