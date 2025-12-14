@@ -64,6 +64,7 @@ export default function AttendanceReportPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isAdmin, setIsAdmin] = useState(false);
   const [userDepartment, setUserDepartment] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const fixedTableRef = useRef<HTMLDivElement>(null);
   const scrollTableRef = useRef<HTMLDivElement>(null);
 
@@ -391,7 +392,7 @@ export default function AttendanceReportPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1f2937", margin: 0, marginBottom: 8 }}>
-          출석 리포트
+          출석리포트
         </h1>
         <p style={{ fontSize: 14, color: "#6b7280", margin: 0, lineHeight: 1.5 }}>
           부서별 1년치 출석 현황을 한눈에 확인할 수 있습니다.
@@ -407,13 +408,14 @@ export default function AttendanceReportPage() {
           border: "1px solid #e5e7eb",
           marginBottom: 20,
           display: "flex",
-          gap: 20,
+          gap: isMobile ? 8 : 20,
           alignItems: "center",
-          flexWrap: "wrap",
+          flexWrap: isMobile ? "nowrap" : "wrap",
+          overflowX: isMobile ? "auto" : "visible",
           boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
           <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>부서</label>
           <select
             value={selectedDepartment}
@@ -426,7 +428,7 @@ export default function AttendanceReportPage() {
               fontSize: 13,
               backgroundColor: "#ffffff",
               cursor: isAdmin || userDepartment === null ? "pointer" : "not-allowed",
-              minWidth: 120,
+              minWidth: isMobile ? 100 : 120,
               fontWeight: 500,
               color: "#1f2937",
               transition: "all 0.2s ease",
@@ -450,7 +452,7 @@ export default function AttendanceReportPage() {
           </select>
         </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>연도</label>
               <select
                 value={selectedYear}
@@ -462,7 +464,7 @@ export default function AttendanceReportPage() {
                   fontSize: 13,
                   backgroundColor: "#ffffff",
                   cursor: "pointer",
-                  minWidth: 100,
+                  minWidth: isMobile ? 90 : 100,
                   fontWeight: 500,
                   color: "#1f2937",
                   transition: "all 0.2s ease",
@@ -489,11 +491,13 @@ export default function AttendanceReportPage() {
                 style={{
                   fontSize: 13,
                   color: "#6b7280",
-                  marginLeft: "auto",
+                  marginLeft: isMobile ? 0 : "auto",
                   padding: "6px 12px",
                   backgroundColor: "#f3f4f6",
                   borderRadius: 6,
                   fontWeight: 500,
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
                 }}
               >
                 총 <span style={{ color: "#3b82f6", fontWeight: 600 }}>{deptMembers.length}</span>명

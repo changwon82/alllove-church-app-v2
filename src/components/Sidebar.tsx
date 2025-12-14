@@ -22,7 +22,7 @@ const getIcon = (label: string) => {
     "통계 대시보드": "📊",
     "출석체크": "✅",
     "명단관리": "📋",
-    "출석 리포트": "📈",
+    "출석리포트": "📈",
   };
   return icons[label] || "•";
 };
@@ -102,7 +102,7 @@ export default function Sidebar() {
     ? [
         { label: "출석체크", path: "/attendance", icon: getIcon("출석체크") },
         { label: "명단관리", path: "/attendance/members", icon: getIcon("명단관리") },
-        { label: "출석 리포트", path: "/attendance/report", icon: getIcon("출석 리포트") },
+        { label: "출석리포트", path: "/attendance/report", icon: getIcon("출석리포트") },
       ]
     : [];
 
