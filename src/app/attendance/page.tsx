@@ -61,6 +61,56 @@ export default function AttendancePage() {
     department: "",
   });
   const [selectedDepartmentInModal, setSelectedDepartmentInModal] = useState<string | null>(null);
+  const [managerSelectedSunday, setManagerSelectedSunday] = useState<string | null>(null);
+
+  // 날짜 계산 헬퍼 함수들
+  const getSundayForDate = (date: Date): string => {
+    const dayOfWeek = date.getDay();
+    const sunday = new Date(date);
+    sunday.setDate(date.getDate() - dayOfWeek);
+    const year = sunday.getFullYear();
+    const month = String(sunday.getMonth() + 1).padStart(2, "0");
+    const day = String(sunday.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getWeekDatesForSunday = (sundayStr: string): string[] => {
+    const sunday = new Date(sundayStr);
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(sunday);
+      date.setDate(sunday.getDate() + i);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      dates.push(`${year}-${month}-${day}`);
+    }
+    return dates;
+  };
+
+  const getPreviousSunday = (currentSunday: string): string => {
+    const date = new Date(currentSunday);
+    date.setDate(date.getDate() - 7);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getNextSunday = (currentSunday: string): string => {
+    const date = new Date(currentSunday);
+    date.setDate(date.getDate() + 7);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const isCurrentWeek = (sundayStr: string): boolean => {
+    const today = new Date();
+    const currentSundayStr = getSundayForDate(today);
+    return sundayStr === currentSundayStr;
+  };
 
   // 이번 주일 날짜들 계산 (일요일 기준)
   useEffect(() => {
@@ -163,25 +213,38 @@ export default function AttendancePage() {
           setProfiles((profilesData as Profile[]) || []);
         }
 
-        // 이번 주 출석 기록 불러오기
-        if (currentWeekDates.length > 0) {
-          const { data: recordsData, error: recordsError } = await supabase
-            .from("attendance_records")
-            .select("*")
-            .in("date", currentWeekDates);
+        // 출석 기록 불러오기 (최근 8주분 로드)
+        const today = new Date();
+        const currentSunday = getSundayForDate(today);
+        const datesToLoad: string[] = [];
+        
+        // 최근 8주간의 날짜들 수집
+        for (let weekOffset = 0; weekOffset < 8; weekOffset++) {
+          const sunday = new Date(currentSunday);
+          sunday.setDate(new Date(currentSunday).getDate() - (weekOffset * 7));
+          const weekDates = getWeekDatesForSunday(getSundayForDate(sunday));
+          datesToLoad.push(...weekDates);
+        }
 
-          if (recordsError) {
-            console.error("출석 기록 조회 에러:", recordsError);
-          } else {
-            const recordsMap: Record<string, Record<string, boolean>> = {};
-            (recordsData as AttendanceRecord[]).forEach((record) => {
-              if (!recordsMap[record.member_id]) {
-                recordsMap[record.member_id] = {};
-              }
-              recordsMap[record.member_id][record.date] = record.attended;
-            });
-            setRecords(recordsMap);
-          }
+        // 중복 제거
+        const uniqueDates = [...new Set(datesToLoad)];
+
+        const { data: recordsData, error: recordsError } = await supabase
+          .from("attendance_records")
+          .select("*")
+          .in("date", uniqueDates);
+
+        if (recordsError) {
+          console.error("출석 기록 조회 에러:", recordsError);
+        } else {
+          const recordsMap: Record<string, Record<string, boolean>> = {};
+          (recordsData as AttendanceRecord[]).forEach((record) => {
+            if (!recordsMap[record.member_id]) {
+              recordsMap[record.member_id] = {};
+            }
+            recordsMap[record.member_id][record.date] = record.attended;
+          });
+          setRecords(recordsMap);
         }
 
         setLoading(false);
@@ -192,7 +255,7 @@ export default function AttendancePage() {
     };
 
     loadData();
-  }, [router, currentWeekDates]);
+  }, [router]);
 
   // 통계 계산
   const stats = useMemo(() => {
@@ -203,7 +266,8 @@ export default function AttendancePage() {
     // 이번 주 평균 출석률
     let weekTotalAttended = 0;
     let weekTotalDays = 0;
-    const sundayDate = currentWeekDates[0]; // 일요일 날짜
+    // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
+    const sundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
 
     currentWeekDates.forEach((date) => {
       let dateAttended = 0;
@@ -280,7 +344,7 @@ export default function AttendancePage() {
       weekAvgRate,
       byDepartment,
     };
-  }, [members, records, currentWeekDates, profiles]);
+  }, [members, records, currentWeekDates, profiles, isAdmin, userDepartment, managerSelectedSunday]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -630,6 +694,9 @@ export default function AttendancePage() {
   }
 
   const sundayDate = currentWeekDates[0];
+  
+  // 부서담당자용 선택된 일요일 (없으면 현재 주 일요일)
+  const managerSundayDate = managerSelectedSunday || sundayDate;
 
   return (
     <div>
@@ -684,17 +751,86 @@ export default function AttendancePage() {
             marginBottom: 16,
           }}
         >
-          <div style={{ marginBottom: 16 }}>
-            {sundayDate && (() => {
-              const date = new Date(sundayDate);
-              const month = date.getMonth() + 1;
-              const day = date.getDate();
-              return (
-                <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0 }}>
-                  이번 주일({month}/{day})
-                </h2>
-              );
-            })()}
+          <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                onClick={() => {
+                  if (managerSundayDate) {
+                    setManagerSelectedSunday(getPreviousSunday(managerSundayDate));
+                  }
+                }}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ◀
+              </button>
+              {managerSundayDate && (() => {
+                const date = new Date(managerSundayDate);
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                return (
+                  <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                    {isCurrentWeek(managerSundayDate) ? "이번 주일" : "주일"}({month}/{day})
+                  </h2>
+                );
+              })()}
+              <button
+                onClick={() => {
+                  if (managerSundayDate) {
+                    const nextSunday = getNextSunday(managerSundayDate);
+                    const today = new Date();
+                    if (new Date(nextSunday) <= today) {
+                      setManagerSelectedSunday(nextSunday);
+                    }
+                  }
+                }}
+                disabled={managerSundayDate ? new Date(getNextSunday(managerSundayDate)) > new Date() : false}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  background: managerSundayDate && new Date(getNextSunday(managerSundayDate)) > new Date() ? "#f3f4f6" : "#ffffff",
+                  color: managerSundayDate && new Date(getNextSunday(managerSundayDate)) > new Date() ? "#9ca3af" : "#374151",
+                  fontSize: 14,
+                  cursor: managerSundayDate && new Date(getNextSunday(managerSundayDate)) > new Date() ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ▶
+              </button>
+              {managerSundayDate && !isCurrentWeek(managerSundayDate) && (
+                <button
+                  onClick={() => {
+                    const today = new Date();
+                    setManagerSelectedSunday(getSundayForDate(today));
+                  }}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #3b82f6",
+                    background: "#ffffff",
+                    color: "#3b82f6",
+                    fontSize: 12,
+                    cursor: "pointer",
+                    marginLeft: 8,
+                  }}
+                >
+                  오늘
+                </button>
+              )}
+            </div>
           </div>
           {(() => {
             // 부서명 매핑
@@ -722,11 +858,11 @@ export default function AttendancePage() {
             return (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {deptMembers.map((member) => {
-                  const attended = records[member.id]?.[sundayDate] === true;
+                  const attended = records[member.id]?.[managerSundayDate] === true;
                   return (
                     <button
                       key={member.id}
-                      onClick={() => toggleAttendance(member.id, sundayDate)}
+                      onClick={() => toggleAttendance(member.id, managerSundayDate)}
                       style={{
                         padding: "2px 2px",
                         borderRadius: 8,
@@ -900,8 +1036,9 @@ export default function AttendancePage() {
                           </thead>
                           <tbody>
                             {deptMembers.map((member, idx) => {
-                              const sundayDate = currentWeekDates[0];
-                              const isAttended = records[member.id]?.[sundayDate] === true;
+                              // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
+                              const displaySundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
+                              const isAttended = records[member.id]?.[displaySundayDate] === true;
                               return (
                                 <tr
                                   key={member.id}
