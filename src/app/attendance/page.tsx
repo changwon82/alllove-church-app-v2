@@ -19,6 +19,7 @@ type AttendanceRecord = {
   member_id: string;
   date: string;
   attended: boolean;
+  status_prayer: string | null;
   created_at: string;
 };
 
@@ -31,12 +32,338 @@ type Profile = {
 
 const departments = ["유치부", "유초등부", "청소년부", "청년부"];
 
+// 현황&기도제목 알림 배지 컴포넌트 (깜빡이는 효과)
+function StatusPrayerBadge({ count }: { count: number }) {
+  const [isBlinking, setIsBlinking] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsBlinking((prev) => !prev);
+    }, 800); // 0.8초마다 깜빡임
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div
+      style={{
+        width: 20,
+        height: 20,
+        borderRadius: "50%",
+        backgroundColor: "#ef4444",
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 11,
+        fontWeight: 600,
+        opacity: isBlinking ? 1 : 0.5,
+        transition: "opacity 0.3s ease",
+      }}
+    >
+      {count}
+    </div>
+  );
+}
+
+// 부서별 명단 테이블 컴포넌트
+function DepartmentMembersTable({
+  deptMembers,
+  records,
+  statusPrayers,
+  sundayDate,
+  onStatusPrayerClick,
+  onSaveStatusPrayer,
+  isReported,
+}: {
+  deptMembers: AttendanceMember[];
+  records: Record<string, Record<string, boolean>>;
+  statusPrayers: Record<string, Record<string, string>>;
+  sundayDate: string;
+  onStatusPrayerClick: (memberId: string, date: string, currentText: string) => void;
+  onSaveStatusPrayer?: (memberId: string, date: string, text: string) => Promise<void>;
+  isReported?: boolean;
+}) {
+  const [editingMemberIds, setEditingMemberIds] = useState<Set<string>>(new Set());
+  const [editTexts, setEditTexts] = useState<Record<string, string>>({});
+
+  const handleStartEdit = (memberId: string, currentText: string) => {
+    if (isReported) return; // 보고완료 상태면 편집 불가
+    setEditingMemberIds((prev) => new Set(prev).add(memberId));
+    setEditTexts((prev) => ({ ...prev, [memberId]: currentText }));
+  };
+
+  const handleUpdateText = (memberId: string, text: string) => {
+    setEditTexts((prev) => ({ ...prev, [memberId]: text }));
+  };
+
+  const handleCancelEdit = (memberId: string) => {
+    setEditingMemberIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(memberId);
+      return newSet;
+    });
+    setEditTexts((prev) => {
+      const newTexts = { ...prev };
+      delete newTexts[memberId];
+      return newTexts;
+    });
+  };
+
+  const handleSaveAll = async () => {
+    if (!onSaveStatusPrayer) {
+      // onSaveStatusPrayer가 없으면 기존 방식 사용
+      editingMemberIds.forEach((memberId) => {
+        const text = editTexts[memberId] || "";
+        onStatusPrayerClick(memberId, sundayDate, text);
+      });
+      setEditingMemberIds(new Set());
+      setEditTexts({});
+      return;
+    }
+
+    // 여러 개를 한 번에 저장
+    const savePromises = Array.from(editingMemberIds).map(async (memberId) => {
+      const text = editTexts[memberId] || "";
+      await onSaveStatusPrayer(memberId, sundayDate, text);
+    });
+
+    try {
+      await Promise.all(savePromises);
+      setEditingMemberIds(new Set());
+      setEditTexts({});
+    } catch (error) {
+      console.error("저장 중 오류:", error);
+    }
+  };
+
+  const hasEditingItems = editingMemberIds.size > 0;
+
+  return (
+    <div>
+      {hasEditingItems && (
+        <div style={{ 
+          marginTop: 12, 
+          marginBottom: 12, 
+          marginRight: 12,
+          display: "flex", 
+          justifyContent: "flex-end", 
+          gap: 10,
+        }}>
+          <button
+            onClick={() => {
+              setEditingMemberIds(new Set());
+              setEditTexts({});
+            }}
+            style={{
+              padding: "5px 20px",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+              color: "#6b7280",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#f9fafb";
+              e.currentTarget.style.borderColor = "#d1d5db";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#ffffff";
+              e.currentTarget.style.borderColor = "#e5e7eb";
+            }}
+          >
+            모두 취소
+          </button>
+          <button
+            onClick={handleSaveAll}
+            disabled={isReported}
+            style={{
+              padding: "5px 20px",
+              borderRadius: 8,
+              border: "none",
+              background: isReported ? "#9ca3af" : "#3b82f6",
+              color: "#ffffff",
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: isReported ? "not-allowed" : "pointer",
+              opacity: isReported ? 0.6 : 1,
+              transition: "all 0.2s ease",
+              boxShadow: isReported ? "none" : "0 2px 4px rgba(59, 130, 246, 0.3)",
+            }}
+            onMouseEnter={(e) => {
+              if (!isReported) {
+                e.currentTarget.style.background = "#2563eb";
+                e.currentTarget.style.boxShadow = "0 4px 6px rgba(59, 130, 246, 0.4)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isReported) {
+                e.currentTarget.style.background = "#3b82f6";
+                e.currentTarget.style.boxShadow = "0 2px 4px rgba(59, 130, 246, 0.3)";
+              }
+            }}
+          >
+            모두 저장 ({editingMemberIds.size})
+          </button>
+        </div>
+      )}
+      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+        <thead>
+          <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+            <th style={{ padding: "10px 6px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: "35px" }}>
+              번호
+            </th>
+            <th style={{ padding: "10px 6px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: "100px" }}>
+              이름
+            </th>
+            <th style={{ padding: "10px 6px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: "45px" }}>
+              출석
+            </th>
+          <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+            현황&기도제목
+          </th>
+          </tr>
+        </thead>
+      <tbody>
+        {deptMembers.map((member, idx) => {
+          const isAttended = records[member.id]?.[sundayDate] === true;
+          const statusPrayer = statusPrayers[member.id]?.[sundayDate] || "";
+          
+          // 나이 계산
+          let age = null;
+          if (member.birth_date) {
+            const birthYear = new Date(member.birth_date).getFullYear();
+            const currentYear = new Date().getFullYear();
+            age = currentYear - birthYear + 1; // 한국식 나이
+          }
+          
+          return (
+            <tr
+              key={member.id}
+              style={{
+                borderBottom: idx < deptMembers.length - 1 ? "1px solid #e5e7eb" : "none",
+                backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
+              }}
+            >
+              <td style={{ padding: "5px 6px", fontSize: 13, color: "#6b7280", textAlign: "center", whiteSpace: "nowrap", backgroundColor: "#f3f4f6" }}>
+                {idx + 1}
+              </td>
+              <td style={{ padding: "5px 6px", fontSize: 13, color: "#1f2937", textAlign: "center", whiteSpace: "nowrap", backgroundColor: "#f3f4f6" }}>
+                {member.name}
+                {member.gender && age && (
+                  <span style={{ fontSize: 12 }}>
+                    {' '}(
+                    <span style={{ color: member.gender === "여" ? "#ef4444" : "#3b82f6" }}>
+                      {member.gender}
+                    </span>
+                    /{age})
+                  </span>
+                )}
+              </td>
+              <td style={{ padding: "5px 6px", fontSize: 13, color: "#9ca3af", textAlign: "center", whiteSpace: "nowrap", backgroundColor: "#f3f4f6" }}>
+                {isAttended ? (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      backgroundColor: "#10b981",
+                      color: "#ffffff",
+                      padding: "2px 8px",
+                      borderRadius: "12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
+                  >
+                    출석
+                  </span>
+                ) : (
+                  "-"
+                )}
+              </td>
+              <td style={{ padding: "5px 12px", fontSize: 13, textAlign: "left", backgroundColor: "#f9fafb" }}>
+                {editingMemberIds.has(member.id) ? (
+                  <textarea
+                    value={editTexts[member.id] || ""}
+                    onChange={(e) => handleUpdateText(member.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        handleCancelEdit(member.id);
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      minHeight: 60,
+                      padding: "8px",
+                      borderRadius: 4,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 13,
+                      fontFamily: "inherit",
+                      resize: "vertical",
+                      outline: "none",
+                    }}
+                    autoFocus
+                  />
+                ) : statusPrayer ? (
+                  <div
+                    onClick={() => handleStartEdit(member.id, statusPrayer)}
+                    style={{
+                      color: "#1f2937",
+                      cursor: isReported ? "not-allowed" : "pointer",
+                      whiteSpace: "pre-wrap",
+                      textAlign: "left",
+                      wordBreak: "break-word",
+                    }}
+                    title={isReported ? "보고완료 상태로 편집할 수 없습니다" : statusPrayer}
+                  >
+                    {isReported && (
+                      <span style={{ 
+                        marginRight: "6px",
+                        color: "#9ca3af",
+                        fontSize: "12px",
+                      }}>
+                        🔒
+                      </span>
+                    )}
+                    {statusPrayer}
+                  </div>
+                ) : !isReported && (
+                  <button
+                    onClick={() => handleStartEdit(member.id, "")}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: 4,
+                      border: "1px solid #e5e7eb",
+                      background: "#ffffff",
+                      color: "#6b7280",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      marginLeft: "auto",
+                      display: "block",
+                    }}
+                  >
+                    입력
+                  </button>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    </div>
+  );
+}
+
 export default function AttendancePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);
   const [members, setMembers] = useState<AttendanceMember[]>([]);
   const [records, setRecords] = useState<Record<string, Record<string, boolean>>>({});
+  const [statusPrayers, setStatusPrayers] = useState<Record<string, Record<string, string>>>({}); // member_id -> date -> status_prayer
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentWeekDates, setCurrentWeekDates] = useState<string[]>([]);
   const [userDepartment, setUserDepartment] = useState<string | null>(null);
@@ -68,6 +395,9 @@ export default function AttendancePage() {
   const adminCalendarAnchorRef = useRef<HTMLHeadingElement | null>(null);
   const managerCalendarAnchorRef = useRef<HTMLHeadingElement | null>(null);
   const [reports, setReports] = useState<Record<string, Record<string, boolean>>>({}); // department -> sunday_date -> true
+  const [showStatusPrayerModal, setShowStatusPrayerModal] = useState(false);
+  const [editingStatusPrayer, setEditingStatusPrayer] = useState<{ memberId: string; date: string; currentText: string } | null>(null);
+  const [statusPrayerInput, setStatusPrayerInput] = useState("");
 
   // 날짜 계산 헬퍼 함수들
   const getSundayForDate = (date: Date): string => {
@@ -580,13 +910,23 @@ export default function AttendancePage() {
           console.error("출석 기록 조회 에러:", recordsError);
         } else {
           const recordsMap: Record<string, Record<string, boolean>> = {};
+          const statusPrayersMap: Record<string, Record<string, string>> = {};
           (recordsData as AttendanceRecord[]).forEach((record) => {
             if (!recordsMap[record.member_id]) {
               recordsMap[record.member_id] = {};
             }
             recordsMap[record.member_id][record.date] = record.attended;
+            
+            // status_prayer 저장
+            if (record.status_prayer) {
+              if (!statusPrayersMap[record.member_id]) {
+                statusPrayersMap[record.member_id] = {};
+              }
+              statusPrayersMap[record.member_id][record.date] = record.status_prayer;
+            }
           });
           setRecords(recordsMap);
+          setStatusPrayers(statusPrayersMap);
         }
 
         // 출석 보고 기록 불러오기 (최근 8주분 로드)
@@ -771,18 +1111,25 @@ export default function AttendancePage() {
         },
         (payload) => {
           console.log("📥 출석 기록 변경 감지:", payload);
+          console.log("📥 payload.eventType:", payload.eventType);
+          console.log("📥 payload.new:", payload.new);
+          console.log("📥 payload.old:", payload.old);
+          
+          const newData = payload.new as { member_id?: string; date?: string; attended?: boolean; status_prayer?: string | null } | null;
+          const oldData = payload.old as { member_id?: string; date?: string; attended?: boolean; status_prayer?: string | null } | null;
+          const memberId = newData?.member_id || oldData?.member_id;
+          const date = newData?.date || oldData?.date;
+
+          if (!memberId || !date) {
+            console.warn("⚠️ memberId 또는 date가 없음:", { memberId, date, payload });
+            return;
+          }
+          
+          console.log("📥 처리 중인 데이터:", { memberId, date, status_prayer: newData?.status_prayer });
+
           // 실시간으로 records state 업데이트
           setRecords((prev) => {
             const newRecords = { ...prev };
-            const newData = payload.new as { member_id?: string; date?: string; attended?: boolean } | null;
-            const oldData = payload.old as { member_id?: string; date?: string } | null;
-            const memberId = newData?.member_id || oldData?.member_id;
-            const date = newData?.date || oldData?.date;
-
-            if (!memberId || !date) {
-              console.warn("⚠️ memberId 또는 date가 없음:", { memberId, date, payload });
-              return prev;
-            }
 
             if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
               // 출석 기록 추가 또는 업데이트
@@ -804,6 +1151,48 @@ export default function AttendancePage() {
             }
 
             return newRecords;
+          });
+
+          // 실시간으로 statusPrayers state 업데이트
+          setStatusPrayers((prev) => {
+            const newStatusPrayers = { ...prev };
+
+            if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+              // status_prayer 업데이트
+              // status_prayer 필드가 payload에 있는 경우에만 업데이트 (null이거나 빈 문자열도 처리)
+              if (newData && 'status_prayer' in newData) {
+                if (newData.status_prayer && newData.status_prayer.trim() !== "") {
+                  // status_prayer 값이 있는 경우
+                  if (!newStatusPrayers[memberId]) {
+                    newStatusPrayers[memberId] = {};
+                  }
+                  newStatusPrayers[memberId][date] = newData.status_prayer;
+                  console.log("✅ 현황&기도제목 업데이트:", { memberId, date, status_prayer: newData.status_prayer, newData });
+                } else {
+                  // status_prayer가 null이거나 빈 값인 경우 삭제
+                  if (newStatusPrayers[memberId] && newStatusPrayers[memberId][date]) {
+                    delete newStatusPrayers[memberId][date];
+                    if (Object.keys(newStatusPrayers[memberId]).length === 0) {
+                      delete newStatusPrayers[memberId];
+                    }
+                  }
+                  console.log("🗑️ 현황&기도제목 삭제 (null/빈값):", { memberId, date, newData });
+                }
+              } else {
+                console.log("⚠️ status_prayer 필드가 payload에 없음:", { memberId, date, newData });
+              }
+            } else if (payload.eventType === "DELETE") {
+              // 레코드 삭제 시 status_prayer도 삭제
+              if (newStatusPrayers[memberId] && newStatusPrayers[memberId][date]) {
+                delete newStatusPrayers[memberId][date];
+                if (Object.keys(newStatusPrayers[memberId]).length === 0) {
+                  delete newStatusPrayers[memberId];
+                }
+              }
+              console.log("🗑️ 현황&기도제목 삭제 (레코드 삭제):", { memberId, date });
+            }
+
+            return newStatusPrayers;
           });
         }
       )
@@ -1259,17 +1648,30 @@ export default function AttendancePage() {
       );
 
       if (error) {
+        // 에러 정보를 안전하게 추출
+        const errorInfo = {
+          message: error?.message || "에러 메시지 없음",
+          details: error?.details || null,
+          hint: error?.hint || null,
+          code: error?.code || null,
+        };
+        
         console.error("❌ 보고완료 저장 에러:", {
-          error,
-          errorStringified: JSON.stringify(error, null, 2),
-          message: error?.message,
-          details: error?.details,
-          hint: error?.hint,
-          code: error?.code,
+          ...errorInfo,
           department,
           sundayDate,
+          fullError: error,
         });
-        const errorMessage = error?.message || error?.details || "알 수 없는 오류";
+        
+        // 에러 객체를 문자열로 변환 시도
+        try {
+          const errorString = JSON.stringify(error, Object.getOwnPropertyNames(error), 2);
+          console.error("에러 상세 정보:", errorString);
+        } catch (stringifyError) {
+          console.error("에러 직렬화 실패:", stringifyError);
+        }
+        
+        const errorMessage = error?.message || error?.details || error?.hint || "알 수 없는 오류";
         alert(`보고완료 저장 중 오류가 발생했습니다: ${errorMessage}`);
         return;
       }
@@ -1333,8 +1735,31 @@ export default function AttendancePage() {
         .eq("sunday_date", sundayDate);
 
       if (error) {
-        console.error("❌ 보고완료 해제 에러:", error);
-        alert("보고완료 해제 중 오류가 발생했습니다.");
+        // 에러 정보를 안전하게 추출
+        const errorInfo = {
+          message: error?.message || "에러 메시지 없음",
+          details: error?.details || null,
+          hint: error?.hint || null,
+          code: error?.code || null,
+        };
+        
+        console.error("❌ 보고완료 해제 에러:", {
+          ...errorInfo,
+          department,
+          sundayDate,
+          fullError: error,
+        });
+        
+        // 에러 객체를 문자열로 변환 시도
+        try {
+          const errorString = JSON.stringify(error, Object.getOwnPropertyNames(error), 2);
+          console.error("에러 상세 정보:", errorString);
+        } catch (stringifyError) {
+          console.error("에러 직렬화 실패:", stringifyError);
+        }
+        
+        const errorMessage = error?.message || error?.details || error?.hint || "알 수 없는 오류";
+        alert(`보고완료 해제 중 오류가 발생했습니다: ${errorMessage}`);
         return;
       }
 
@@ -1363,6 +1788,108 @@ export default function AttendancePage() {
       }
       console.error("보고완료 해제 에러:", err);
       alert("보고완료 해제 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleSaveStatusPrayer = async (memberId: string, date: string, text: string) => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      // attendance_records에서 해당 멤버와 날짜의 레코드 찾기
+      const { data: existingRecord, error: findError } = await supabase
+        .from("attendance_records")
+        .select("id")
+        .eq("member_id", memberId)
+        .eq("date", date)
+        .maybeSingle();
+
+      if (findError && findError.code !== "PGRST116") {
+        console.error("기록 조회 에러:", findError);
+        alert("기록 조회 중 오류가 발생했습니다.");
+        return;
+      }
+
+      if (existingRecord) {
+        // 기존 레코드 업데이트
+        const { error: updateError } = await supabase
+          .from("attendance_records")
+          .update({ status_prayer: text || null })
+          .eq("id", existingRecord.id);
+
+        if (updateError) {
+          console.error("현황&기도제목 저장 에러:", updateError);
+          alert("저장 중 오류가 발생했습니다.");
+          return;
+        }
+      } else {
+        // 새 레코드 생성 (attended는 false로 기본값)
+        const { error: insertError } = await supabase
+          .from("attendance_records")
+          .insert({
+            member_id: memberId,
+            date: date,
+            attended: false,
+            status_prayer: text || null,
+          });
+
+        if (insertError) {
+          console.error("현황&기도제목 저장 에러:", insertError);
+          alert("저장 중 오류가 발생했습니다.");
+          return;
+        }
+      }
+
+      // 로컬 state 업데이트
+      setStatusPrayers((prev) => {
+        const newStatusPrayers = { ...prev };
+        if (!newStatusPrayers[memberId]) {
+          newStatusPrayers[memberId] = {};
+        }
+        if (text) {
+          newStatusPrayers[memberId][date] = text;
+        } else {
+          delete newStatusPrayers[memberId][date];
+          if (Object.keys(newStatusPrayers[memberId]).length === 0) {
+            delete newStatusPrayers[memberId];
+          }
+        }
+        return newStatusPrayers;
+      });
+
+      setShowStatusPrayerModal(false);
+      setEditingStatusPrayer(null);
+      setStatusPrayerInput("");
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found") ||
+        err?.status === 401
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+      console.error("현황&기도제목 저장 에러:", err);
+      alert("저장 중 오류가 발생했습니다.");
     }
   };
 
@@ -1693,20 +2220,67 @@ export default function AttendancePage() {
               {departments.map((dept, index) => {
                 const deptStats = stats.byDepartment[dept];
                 const rate = deptStats && deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+                const isExpanded = expandedDepartments.has(dept);
+                
+                // 부서명 매핑
+                const deptMapping: Record<string, string> = {
+                  "아동부": "유치부",
+                  "중고등부": "청소년부",
+                };
+                
+                // 해당 부서의 명단 필터링
+                const deptMembers = members.filter((m) => {
+                  const mappedDept = deptMapping[m.department || ""] || m.department;
+                  return mappedDept === dept || m.department === dept;
+                }).sort((a, b) => a.name.localeCompare(b.name));
+                
+                const adminSundayDate = adminSelectedSunday || currentWeekDates[0];
+                
+                // 현황&기도제목에 내용이 있는 개수 계산
+                const statusPrayerCount = deptMembers.filter((member) => {
+                  const statusPrayer = statusPrayers[member.id]?.[adminSundayDate] || "";
+                  return statusPrayer.trim() !== "";
+                }).length;
+                
                 return (
-                  <div
-                    key={dept}
-                    style={{
-                      padding: "12px 16px",
-                      borderBottom: index < departments.length - 1 ? "1px solid #e5e7eb" : "none",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                    }}
-                  >
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", minWidth: 80 }}>
-                      {dept}
-                    </div>
+                  <div key={dept}>
+                    <div
+                      style={{
+                        padding: "12px 16px",
+                        borderBottom: index < departments.length - 1 ? "1px solid #e5e7eb" : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                      }}
+                    >
+                      <div
+                        onClick={() => {
+                          setExpandedDepartments((prev) => {
+                            const newSet = new Set(prev);
+                            if (newSet.has(dept)) {
+                              newSet.delete(dept);
+                            } else {
+                              newSet.add(dept);
+                            }
+                            return newSet;
+                          });
+                        }}
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: "#374151",
+                          minWidth: 80,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <span style={{ fontSize: 12, color: "#6b7280" }}>
+                          {isExpanded ? "▼" : "▶"}
+                        </span>
+                        {dept}
+                      </div>
                     {deptStats?.manager && (
                       <div style={{ fontSize: 13, color: "#6b7280", minWidth: 150 }}>
                         (담당: {deptStats.manager.name}{deptStats.manager.position ? ` ${deptStats.manager.position}` : ""})
@@ -1714,34 +2288,34 @@ export default function AttendancePage() {
                     )}
                     {deptStats ? (
                       <>
-                        <div style={{ fontSize: 14, color: "#1f2937", marginLeft: "auto" }}>
-                          {deptStats.attended}/{deptStats.total}명
+                        <div style={{ fontSize: 14, color: "#1f2937", marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                          {statusPrayerCount > 0 && (
+                            <StatusPrayerBadge count={statusPrayerCount} />
+                          )}
+                          <span>{deptStats.attended}/{deptStats.total}명</span>
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444", minWidth: 50, textAlign: "right" }}>
                           {rate}%
                         </div>
                         {(() => {
-                          const adminSundayDate = adminSelectedSunday || currentWeekDates[0];
                           const isReported = reports[dept]?.[adminSundayDate] === true;
                           return (
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
-                              {isReported && (
-                                <button
-                                  onClick={() => handleUnreport(dept, adminSundayDate)}
-                                  style={{
-                                    padding: "4px 12px",
-                                    borderRadius: 6,
-                                    border: "1px solid #3b82f6",
-                                    background: "#ffffff",
-                                    color: "#3b82f6",
-                                    fontSize: 12,
-                                    fontWeight: 500,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  수정
-                                </button>
-                              )}
+                              <button
+                                onClick={() => handleUnreport(dept, adminSundayDate)}
+                                style={{
+                                  padding: "4px 12px",
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: isReported ? "#3b82f6" : "#f3f4f6",
+                                  color: isReported ? "#ffffff" : "#6b7280",
+                                  fontSize: 12,
+                                  fontWeight: 500,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                수정
+                              </button>
                               <button
                                 onClick={() => handleReport(dept, adminSundayDate)}
                                 disabled={true}
@@ -1765,6 +2339,30 @@ export default function AttendancePage() {
                       </>
                     ) : (
                       <div style={{ fontSize: 14, color: "#9ca3af", marginLeft: "auto" }}>데이터 없음</div>
+                    )}
+                    </div>
+                    {isExpanded && deptMembers.length > 0 && (
+                      <div
+                        style={{
+                          backgroundColor: "#f9fafb",
+                          borderTop: "1px solid #e5e7eb",
+                          padding: "16px",
+                        }}
+                      >
+                        <DepartmentMembersTable
+                          deptMembers={deptMembers}
+                          records={records}
+                          statusPrayers={statusPrayers}
+                          sundayDate={adminSundayDate}
+                          onStatusPrayerClick={(memberId, date, currentText) => {
+                            setEditingStatusPrayer({ memberId, date, currentText });
+                            setStatusPrayerInput(currentText);
+                            setShowStatusPrayerModal(true);
+                          }}
+                          onSaveStatusPrayer={handleSaveStatusPrayer}
+                          isReported={reports[dept]?.[adminSundayDate] === true}
+                        />
+                      </div>
                     )}
                   </div>
                 );
@@ -2041,59 +2639,25 @@ export default function AttendancePage() {
                     overflow: "hidden",
                   }}
                 >
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-                        <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: 50 }}>
-                          번호
-                        </th>
-                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                          이름
-                        </th>
-                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                          성별
-                        </th>
-                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                          생년월일
-                        </th>
-                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                          출석
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {deptMembers.map((member, idx) => {
-                        // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
-                        const displaySundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
-                        const isAttended = records[member.id]?.[displaySundayDate] === true;
-                        return (
-                          <tr
-                            key={member.id}
-                            style={{
-                              borderBottom: idx < deptMembers.length - 1 ? "1px solid #e5e7eb" : "none",
-                              backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
-                            }}
-                          >
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>
-                              {idx + 1}
-                            </td>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#1f2937" }}>
-                              {member.name}
-                            </td>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
-                              {member.gender || "-"}
-                            </td>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
-                              {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
-                            </td>
-                            <td style={{ padding: "10px 12px", fontSize: 13, color: isAttended ? "#10b981" : "#9ca3af" }}>
-                              {isAttended ? "출석" : "-"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <DepartmentMembersTable
+                    deptMembers={deptMembers}
+                    records={records}
+                    statusPrayers={statusPrayers}
+                    sundayDate={(() => {
+                      // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
+                      return (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
+                    })()}
+                    onStatusPrayerClick={(memberId, date, currentText) => {
+                      setEditingStatusPrayer({ memberId, date, currentText });
+                      setStatusPrayerInput(currentText);
+                      setShowStatusPrayerModal(true);
+                    }}
+                    onSaveStatusPrayer={handleSaveStatusPrayer}
+                    isReported={(() => {
+                      const managerSundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
+                      return reports[userDepartment || ""]?.[managerSundayDate] === true;
+                    })()}
+                  />
                 </div>
               );
               });
@@ -2657,6 +3221,166 @@ export default function AttendancePage() {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* 현황&기도제목 입력 모달 */}
+      {showStatusPrayerModal && editingStatusPrayer && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowStatusPrayerModal(false);
+              setEditingStatusPrayer(null);
+              setStatusPrayerInput("");
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 12,
+              padding: "28px",
+              width: "80%",
+              maxWidth: 400,
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontSize: 17, fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                현황&기도제목 입력
+              </h2>
+              <button
+                onClick={() => {
+                  setShowStatusPrayerModal(false);
+                  setEditingStatusPrayer(null);
+                  setStatusPrayerInput("");
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 22,
+                  color: "#9ca3af",
+                  cursor: "pointer",
+                  padding: 0,
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 4,
+                  transition: "background-color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <textarea
+                value={statusPrayerInput}
+                onChange={(e) => setStatusPrayerInput(e.target.value)}
+                placeholder="현황 및 기도제목을 입력하세요"
+                style={{
+                  width: "100%",
+                  minHeight: 75,
+                  padding: "14px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "#3b82f6";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowStatusPrayerModal(false);
+                  setEditingStatusPrayer(null);
+                  setStatusPrayerInput("");
+                }}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#ffffff",
+                  color: "#6b7280",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f9fafb";
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#ffffff";
+                  e.currentTarget.style.borderColor = "#e5e7eb";
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  if (editingStatusPrayer) {
+                    await handleSaveStatusPrayer(
+                      editingStatusPrayer.memberId,
+                      editingStatusPrayer.date,
+                      statusPrayerInput
+                    );
+                  }
+                }}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "#3b82f6",
+                  color: "#ffffff",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "background-color 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#2563eb";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#3b82f6";
+                }}
+              >
+                저장
+              </button>
+            </div>
           </div>
         </div>
       )}
