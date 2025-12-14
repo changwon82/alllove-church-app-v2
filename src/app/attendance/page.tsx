@@ -62,6 +62,7 @@ export default function AttendancePage() {
   });
   const [selectedDepartmentInModal, setSelectedDepartmentInModal] = useState<string | null>(null);
   const [managerSelectedSunday, setManagerSelectedSunday] = useState<string | null>(null);
+  const [adminSelectedSunday, setAdminSelectedSunday] = useState<string | null>(null);
 
   // 날짜 계산 헬퍼 함수들
   const getSundayForDate = (date: Date): string => {
@@ -276,8 +277,12 @@ export default function AttendancePage() {
     // 이번 주 평균 출석률
     let weekTotalAttended = 0;
     let weekTotalDays = 0;
-    // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
-    const sundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
+    // 관리자는 선택한 날짜, 부서담당자는 선택한 날짜, 없으면 현재 주 일요일 사용
+    const sundayDate = isAdmin 
+      ? (adminSelectedSunday || currentWeekDates[0])
+      : (!isAdmin && userDepartment && managerSelectedSunday) 
+      ? managerSelectedSunday 
+      : currentWeekDates[0];
 
     currentWeekDates.forEach((date) => {
       let dateAttended = 0;
@@ -354,7 +359,7 @@ export default function AttendancePage() {
       weekAvgRate,
       byDepartment,
     };
-  }, [members, records, currentWeekDates, profiles, isAdmin, userDepartment, managerSelectedSunday]);
+  }, [members, records, currentWeekDates, profiles, isAdmin, userDepartment, managerSelectedSunday, adminSelectedSunday]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -802,43 +807,245 @@ export default function AttendancePage() {
               })()}
             </>
           ) : (
-            "출석체크 통계"
+            "출석체크"
           )}
         </h1>
       </div>
 
+      {/* 관리자용 날짜 변경 */}
+      {isAdmin && (
+        <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
+          <input
+            type="date"
+            id="admin-date-picker"
+            max={(() => {
+              const today = new Date();
+              const currentSunday = getSundayForDate(today);
+              return currentSunday;
+            })()}
+            style={{
+              position: "absolute",
+              opacity: 0,
+              pointerEvents: "none",
+              width: 0,
+              height: 0,
+            }}
+            onChange={(e) => {
+              if (e.target.value) {
+                const selectedDate = new Date(e.target.value);
+                const selectedSunday = getSundayForDate(selectedDate);
+                setAdminSelectedSunday(selectedSunday);
+                e.target.value = "";
+              }
+            }}
+          />
+          <button
+            onClick={() => {
+              const displayDate = adminSelectedSunday || sundayDate;
+              if (displayDate) {
+                setAdminSelectedSunday(getPreviousSunday(displayDate));
+              }
+            }}
+            style={{
+              padding: "4px 8px",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: "#ffffff",
+              color: "#374151",
+              fontSize: 14,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            ◀
+          </button>
+          {(() => {
+            const displayDate = adminSelectedSunday || sundayDate;
+            if (!displayDate) return null;
+            const date = new Date(displayDate);
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return (
+              <h3
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  margin: 0,
+                  cursor: "pointer",
+                  padding: "4px 8px",
+                  borderRadius: 4,
+                  transition: "background-color 0.2s ease",
+                }}
+                onClick={() => {
+                  const dateInput = document.getElementById("admin-date-picker") as HTMLInputElement;
+                  if (dateInput && dateInput.showPicker) {
+                    dateInput.showPicker();
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#f3f4f6";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                {isCurrentWeek(displayDate) ? "이번 주일" : "주일"}({month}/{day})
+              </h3>
+            );
+          })()}
+          <button
+            onClick={() => {
+              const displayDate = adminSelectedSunday || sundayDate;
+              if (displayDate) {
+                const nextSunday = getNextSunday(displayDate);
+                const today = new Date();
+                if (new Date(nextSunday) <= today) {
+                  setAdminSelectedSunday(nextSunday);
+                }
+              }
+            }}
+            disabled={(() => {
+              const displayDate = adminSelectedSunday || sundayDate;
+              return displayDate ? new Date(getNextSunday(displayDate)) > new Date() : false;
+            })()}
+            style={{
+              padding: "4px 8px",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: (() => {
+                const displayDate = adminSelectedSunday || sundayDate;
+                return displayDate && new Date(getNextSunday(displayDate)) > new Date() ? "#f3f4f6" : "#ffffff";
+              })(),
+              color: (() => {
+                const displayDate = adminSelectedSunday || sundayDate;
+                return displayDate && new Date(getNextSunday(displayDate)) > new Date() ? "#9ca3af" : "#374151";
+              })(),
+              fontSize: 14,
+              cursor: (() => {
+                const displayDate = adminSelectedSunday || sundayDate;
+                return displayDate && new Date(getNextSunday(displayDate)) > new Date() ? "not-allowed" : "pointer";
+              })(),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            ▶
+          </button>
+          {adminSelectedSunday && !isCurrentWeek(adminSelectedSunday) && (
+            <button
+              onClick={() => {
+                const today = new Date();
+                setAdminSelectedSunday(getSundayForDate(today));
+              }}
+              style={{
+                padding: "4px 12px",
+                borderRadius: 6,
+                border: "1px solid #3b82f6",
+                background: "#ffffff",
+                color: "#3b82f6",
+                fontSize: 12,
+                cursor: "pointer",
+                marginLeft: 8,
+              }}
+            >
+              이번 주
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 주요 통계 카드 (관리자만) */}
       {isAdmin && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: 8,
-              padding: "16px",
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+            <div
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                padding: "16px",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 8,
+                padding: "16px",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
+                {stats.weekAvgRate}%
+              </div>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+                주일예배 평균
+              </div>
+            </div>
           </div>
 
+          {/* 부서별 이번 주 출석 현황 (관리자만) */}
           <div
             style={{
               backgroundColor: "#ffffff",
               borderRadius: 8,
               padding: "16px",
               border: "1px solid #e5e7eb",
+              marginBottom: 16,
             }}
           >
-            <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
-              {stats.weekAvgRate}%
-            </div>
-            <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
-              주일예배 평균
+            <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0, marginBottom: 16 }}>
+              부서별 이번 주 출석 현황
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              {departments.map((dept, index) => {
+                const deptStats = stats.byDepartment[dept];
+                const rate = deptStats && deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+                return (
+                  <div
+                    key={dept}
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: index < departments.length - 1 ? "1px solid #e5e7eb" : "none",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", minWidth: 80 }}>
+                      {dept}
+                    </div>
+                    {deptStats?.manager && (
+                      <div style={{ fontSize: 13, color: "#6b7280", minWidth: 150 }}>
+                        (담당: {deptStats.manager.name}{deptStats.manager.position ? ` ${deptStats.manager.position}` : ""})
+                      </div>
+                    )}
+                    {deptStats ? (
+                      <>
+                        <div style={{ fontSize: 14, color: "#1f2937", marginLeft: "auto" }}>
+                          {deptStats.attended}/{deptStats.total}명
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444", minWidth: 50, textAlign: "right" }}>
+                          {rate}%
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 14, color: "#9ca3af", marginLeft: "auto" }}>데이터 없음</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* 부서담당자용 출석체크 */}
@@ -853,7 +1060,31 @@ export default function AttendancePage() {
           }}
         >
           <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
+              <input
+                type="date"
+                id="manager-date-picker"
+                max={(() => {
+                  const today = new Date();
+                  const currentSunday = getSundayForDate(today);
+                  return currentSunday;
+                })()}
+                style={{
+                  position: "absolute",
+                  opacity: 0,
+                  pointerEvents: "none",
+                  width: 0,
+                  height: 0,
+                }}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const selectedDate = new Date(e.target.value);
+                    const selectedSunday = getSundayForDate(selectedDate);
+                    setManagerSelectedSunday(selectedSunday);
+                    e.target.value = "";
+                  }
+                }}
+              />
               <button
                 onClick={() => {
                   if (managerSundayDate) {
@@ -880,7 +1111,30 @@ export default function AttendancePage() {
                 const month = date.getMonth() + 1;
                 const day = date.getDate();
                 return (
-                  <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0 }}>
+                  <h2
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 600,
+                      color: "#1f2937",
+                      margin: 0,
+                      cursor: "pointer",
+                      padding: "4px 8px",
+                      borderRadius: 4,
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onClick={() => {
+                      const dateInput = document.getElementById("manager-date-picker") as HTMLInputElement;
+                      if (dateInput && dateInput.showPicker) {
+                        dateInput.showPicker();
+                      }
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#f3f4f6";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }}
+                  >
                     {isCurrentWeek(managerSundayDate) ? "이번 주일" : "주일"}({month}/{day})
                   </h2>
                 );
@@ -928,7 +1182,7 @@ export default function AttendancePage() {
                     marginLeft: 8,
                   }}
                 >
-                  오늘
+                  이번 주
                 </button>
               )}
               {(() => {

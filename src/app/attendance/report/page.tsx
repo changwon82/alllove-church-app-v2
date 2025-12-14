@@ -392,7 +392,7 @@ export default function AttendanceReportPage() {
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1f2937", margin: 0, marginBottom: 8 }}>
-          출석리포트
+          {userDepartment ? `${userDepartment} 출석리포트` : "출석리포트"}
         </h1>
         <p style={{ fontSize: 14, color: "#6b7280", margin: 0, lineHeight: 1.5 }}>
           부서별 1년치 출석 현황을 한눈에 확인할 수 있습니다.
@@ -631,7 +631,7 @@ export default function AttendanceReportPage() {
                         >
                           <td
                             style={{
-                              padding: "10px 12px",
+                              padding: "4px 8px",
                               textAlign: "center",
                               color: "#6b7280",
                               border: "1px solid #e5e7eb",
@@ -644,7 +644,7 @@ export default function AttendanceReportPage() {
                           </td>
                           <td
                             style={{
-                              padding: "10px 12px",
+                              padding: "4px 8px",
                               color: "#1f2937",
                               border: "1px solid #e5e7eb",
                               borderTop: "none",
@@ -758,7 +758,7 @@ export default function AttendanceReportPage() {
                               <td
                                 key={sunday}
                                 style={{
-                                  padding: "10px 8px",
+                                  padding: "4px 5px",
                                   textAlign: "center",
                                   backgroundColor: attended
                                     ? "#d1fae5"
