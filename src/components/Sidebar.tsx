@@ -202,8 +202,8 @@ export default function Sidebar() {
         style={{
           position: "fixed",
           top: 0,
-          left: isMobile ? (isOpen ? 0 : "-280px") : 0,
-          width: isMobile ? 280 : 240,
+          left: isMobile ? (isOpen ? 0 : "-240px") : 0,
+          width: 240,
           height: "100vh",
           background: "#1f2937",
           zIndex: 999,
