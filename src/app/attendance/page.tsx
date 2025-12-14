@@ -2032,7 +2032,6 @@ export default function AttendancePage() {
           )}
         </h1>
       </div>
-
       {/* 관리자용 날짜 변경 */}
       {isAdmin && (
         <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12, position: "relative" }}>

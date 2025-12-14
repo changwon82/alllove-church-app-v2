@@ -8,6 +8,7 @@ type AttendanceMember = {
   id: string;
   name: string;
   department: string | null;
+  created_at: string;
 };
 
 type AttendanceRecord = {
@@ -320,28 +321,67 @@ export default function AttendanceReportPage() {
     });
   }, [hasPermission, selectedDepartment, sundays, selectedYear]);
 
-  // 날짜 포맷팅
-  const formatDate = (dateStr: string) => {
+  // 날짜 포맷팅 (월 표시는 각 월의 첫 주일에만)
+  const formatDate = (dateStr: string, index: number, sundays: string[]) => {
     const date = new Date(dateStr);
     const month = date.getMonth() + 1;
     const day = date.getDate();
-    return `${month}/${day}`;
+    
+    // 이전 주일이 다른 월이면 월 표시 포함
+    if (index === 0) {
+      return `${month}/${day}`;
+    }
+    
+    const prevSunday = new Date(sundays[index - 1]);
+    const prevMonth = prevSunday.getMonth() + 1;
+    
+    if (month !== prevMonth) {
+      return `${month}/${day}`;
+    }
+    
+    // 같은 월이면 일만 표시
+    return `${day}`;
+  };
+  
+  // 해당 주일이 월의 시작인지 확인
+  const isMonthStart = (dateStr: string, index: number, sundays: string[]) => {
+    if (index === 0) return true;
+    const date = new Date(dateStr);
+    const month = date.getMonth() + 1;
+    const prevSunday = new Date(sundays[index - 1]);
+    const prevMonth = prevSunday.getMonth() + 1;
+    return month !== prevMonth;
   };
 
-  // 주일별 출석률 계산
+  // 주일별 출석률 계산 (해당 주일 시점에 존재했던 멤버만 포함)
   const getAttendanceRate = (sunday: string) => {
     if (deptMembers.length === 0) return 0;
+    const sundayDate = new Date(sunday);
     let total = 0;
     let attended = 0;
+    
     deptMembers.forEach((member) => {
-      if (records[member.id]?.[sunday] !== undefined) {
-        total++;
-        if (records[member.id][sunday]) {
-          attended++;
+      // 멤버가 해당 주일 시점에 존재했는지 확인
+      const memberCreatedAt = member.created_at ? new Date(member.created_at) : null;
+      const memberExistsBeforeDate = !memberCreatedAt || memberCreatedAt <= sundayDate;
+      
+      if (memberExistsBeforeDate) {
+        if (records[member.id]?.[sunday] !== undefined) {
+          total++;
+          if (records[member.id][sunday]) {
+            attended++;
+          }
         }
       }
     });
-    return total > 0 ? Math.round((attended / deptMembers.length) * 100) : 0;
+    
+    // 해당 주일 시점에 존재한 멤버 수 계산
+    const existingMembersCount = deptMembers.filter((member) => {
+      const memberCreatedAt = member.created_at ? new Date(member.created_at) : null;
+      return !memberCreatedAt || memberCreatedAt <= sundayDate;
+    }).length;
+    
+    return existingMembersCount > 0 ? Math.round((attended / existingMembersCount) * 100) : 0;
   };
 
   // 연도 옵션 생성 (현재 연도 기준 ±5년)
@@ -389,12 +429,24 @@ export default function AttendanceReportPage() {
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: "#1f2937", margin: 0, marginBottom: 8 }}>
+    <div style={{ maxWidth: "100%", padding: "0 4px" }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ 
+          fontSize: 22, 
+          fontWeight: 700, 
+          color: "#111827", 
+          margin: 0, 
+          marginBottom: 4,
+          letterSpacing: "-0.01em",
+        }}>
           {userDepartment ? `${userDepartment} 출석리포트` : "출석리포트"}
         </h1>
-        <p style={{ fontSize: 14, color: "#6b7280", margin: 0, lineHeight: 1.5 }}>
+        <p style={{ 
+          fontSize: 13, 
+          color: "#6b7280", 
+          margin: 0, 
+          lineHeight: 1.5,
+        }}>
           부서별 1년치 출석 현황을 한눈에 확인할 수 있습니다.
         </p>
       </div>
@@ -404,15 +456,15 @@ export default function AttendanceReportPage() {
         style={{
           backgroundColor: "#ffffff",
           borderRadius: 12,
-          padding: "20px",
-          border: "1px solid #e5e7eb",
-          marginBottom: 20,
+          padding: "16px",
+          border: "none",
+          marginBottom: 16,
           display: "flex",
-          gap: isMobile ? 8 : 20,
+          gap: isMobile ? 8 : 16,
           alignItems: "center",
           flexWrap: isMobile ? "nowrap" : "wrap",
           overflowX: isMobile ? "auto" : "visible",
-          boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+          boxShadow: "0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -422,13 +474,13 @@ export default function AttendanceReportPage() {
             onChange={(e) => setSelectedDepartment(e.target.value)}
             disabled={!isAdmin && userDepartment !== null}
             style={{
-              padding: "8px 12px",
-              borderRadius: 6,
-              border: "1px solid #d1d5db",
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1.5px solid #e5e7eb",
               fontSize: 13,
               backgroundColor: "#ffffff",
               cursor: isAdmin || userDepartment === null ? "pointer" : "not-allowed",
-              minWidth: isMobile ? 100 : 120,
+              minWidth: isMobile ? 100 : 110,
               fontWeight: 500,
               color: "#1f2937",
               transition: "all 0.2s ease",
@@ -436,11 +488,11 @@ export default function AttendanceReportPage() {
             onMouseEnter={(e) => {
               if (isAdmin || userDepartment === null) {
                 e.currentTarget.style.borderColor = "#3b82f6";
-                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+                e.currentTarget.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#d1d5db";
+              e.currentTarget.style.borderColor = "#e5e7eb";
               e.currentTarget.style.boxShadow = "none";
             }}
           >
@@ -458,23 +510,23 @@ export default function AttendanceReportPage() {
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
                 style={{
-                  padding: "8px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1.5px solid #e5e7eb",
                   fontSize: 13,
                   backgroundColor: "#ffffff",
                   cursor: "pointer",
-                  minWidth: isMobile ? 90 : 100,
+                  minWidth: isMobile ? 90 : 95,
                   fontWeight: 500,
                   color: "#1f2937",
                   transition: "all 0.2s ease",
                 }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "#3b82f6";
-              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(59, 130, 246, 0.1)";
+              e.currentTarget.style.boxShadow = "0 0 0 4px rgba(59, 130, 246, 0.1)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "#d1d5db";
+              e.currentTarget.style.borderColor = "#e5e7eb";
               e.currentTarget.style.boxShadow = "none";
             }}
           >
@@ -486,23 +538,49 @@ export default function AttendanceReportPage() {
           </select>
         </div>
 
-            {deptMembers.length > 0 && (
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "#6b7280",
-                  marginLeft: isMobile ? 0 : "auto",
-                  padding: "6px 12px",
-                  backgroundColor: "#f3f4f6",
-                  borderRadius: 6,
-                  fontWeight: 500,
-                  flexShrink: 0,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                총 <span style={{ color: "#3b82f6", fontWeight: 600 }}>{deptMembers.length}</span>명
-              </div>
-            )}
+            {(() => {
+              // 선택된 연도의 마지막 날짜 또는 현재 날짜 중 더 이른 날짜를 기준으로 계산
+              const today = new Date();
+              const yearEnd = new Date(selectedYear, 11, 31); // 해당 연도의 12월 31일
+              const referenceDate = today < yearEnd ? today : yearEnd;
+              
+              const currentMemberCount = deptMembers.filter((member) => {
+                if (!member.created_at) return true; // created_at이 없으면 포함
+                const memberCreatedAt = new Date(member.created_at);
+                return memberCreatedAt <= referenceDate;
+              }).length;
+              
+              // 기준 날짜 포맷팅
+              const formatReferenceDate = () => {
+                if (referenceDate.getTime() === yearEnd.getTime() && referenceDate >= today) {
+                  return `${selectedYear}년 말`;
+                }
+                const month = referenceDate.getMonth() + 1;
+                const day = referenceDate.getDate();
+                return `${selectedYear}.${month}.${day}`;
+              };
+              
+              return currentMemberCount > 0 ? (
+                <div
+                  style={{
+                    fontSize: 13,
+                    marginLeft: isMobile ? 0 : "auto",
+                    padding: "6px 14px",
+                    backgroundColor: "#f1f5f9",
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                    color: "#475569",
+                  }}
+                >
+                  <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
+                    {formatReferenceDate()} 기준
+                  </span>{" "}
+                  총 <span style={{ fontWeight: 700, color: "#334155" }}>{currentMemberCount}</span>명
+                </div>
+              ) : null;
+            })()}
       </div>
 
           {/* 리포트 테이블 */}
@@ -510,14 +588,15 @@ export default function AttendanceReportPage() {
             <div
               style={{
                 backgroundColor: "#ffffff",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                border: "none",
                 overflow: "hidden",
                 width: "100%",
                 maxWidth: "100%",
+                boxShadow: "0 2px 4px -1px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06)",
               }}
             >
-              <div style={{ display: "flex", position: "relative", maxHeight: "75vh", width: "100%" }}>
+              <div style={{ display: "flex", position: "relative", maxHeight: "80vh", width: "100%" }}>
             {/* 고정 컬럼 (번호, 이름) */}
             <div
               ref={fixedTableRef}
@@ -526,36 +605,42 @@ export default function AttendanceReportPage() {
                 borderRight: "1px solid #e2e8f0",
                 zIndex: 10,
                 overflowY: "auto",
-                maxHeight: "75vh",
+                maxHeight: "80vh",
               }}
             >
               <table style={{ borderCollapse: "collapse", fontSize: 12, tableLayout: "fixed", borderSpacing: 0 }}>
                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-                  <tr style={{ backgroundColor: "#f9fafb" }}>
+                  <tr style={{ backgroundColor: "#f8fafc" }}>
                     <th
                       style={{
-                        padding: "10px 12px",
+                        padding: "6px 12px",
                         textAlign: "center",
-                        fontWeight: 600,
-                        color: "#6b7280",
-                        border: "1px solid #e5e7eb",
-                        backgroundColor: "#f9fafb",
+                        fontWeight: 700,
+                        color: "#475569",
+                        border: "none",
+                        borderBottom: "2px solid #e2e8f0",
                         width: "50px",
                         fontSize: 12,
+                        letterSpacing: "0.01em",
+                        height: "28px",
+                        lineHeight: "16px",
                       }}
                     >
                       번호
                     </th>
                     <th
                       style={{
-                        padding: "10px 12px",
+                        padding: "6px 12px",
                         textAlign: "left",
-                        fontWeight: 600,
-                        color: "#6b7280",
-                        border: "1px solid #e5e7eb",
-                        borderLeft: "none",
-                        backgroundColor: "#f9fafb",
+                        fontWeight: 700,
+                        color: "#475569",
+                        border: "none",
+                        borderLeft: "1px solid #e2e8f0",
+                        borderBottom: "2px solid #e2e8f0",
                         fontSize: 12,
+                        letterSpacing: "0.01em",
+                        height: "28px",
+                        lineHeight: "16px",
                       }}
                     >
                       이름
@@ -582,34 +667,36 @@ export default function AttendanceReportPage() {
                   ) : (
                     <>
                       {/* 출석률 행 */}
-                      <tr style={{ backgroundColor: "#eff6ff" }}>
+                      <tr style={{ backgroundColor: "#f8fafc" }}>
                         <td
                           style={{
-                            padding: "10px 12px",
+                            padding: "6px 12px",
                             textAlign: "center",
                             fontWeight: 700,
-                            color: "#1e40af",
-                            border: "1px solid #e5e7eb",
-                            borderTop: "none",
-                            backgroundColor: "#eff6ff",
-                            borderBottom: "2px solid #e5e7eb",
+                            color: "#475569",
+                            border: "none",
+                            borderBottom: "2px solid #e2e8f0",
+                            backgroundColor: "#f8fafc",
                             fontSize: 12,
+                            height: "28px",
+                            lineHeight: "16px",
                           }}
                         >
                           -
                         </td>
                         <td
                           style={{
-                            padding: "10px 12px",
+                            padding: "6px 12px",
                             textAlign: "left",
                             fontWeight: 700,
-                            color: "#1e40af",
-                            border: "1px solid #e5e7eb",
-                            borderTop: "none",
-                            borderLeft: "none",
-                            backgroundColor: "#eff6ff",
-                            borderBottom: "2px solid #e5e7eb",
+                            color: "#475569",
+                            border: "none",
+                            borderLeft: "1px solid #e2e8f0",
+                            borderBottom: "2px solid #e2e8f0",
+                            backgroundColor: "#f8fafc",
                             fontSize: 12,
+                            height: "28px",
+                            lineHeight: "16px",
                           }}
                         >
                           출석률
@@ -631,26 +718,32 @@ export default function AttendanceReportPage() {
                         >
                           <td
                             style={{
-                              padding: "4px 8px",
+                              padding: "6px 12px",
                               textAlign: "center",
-                              color: "#6b7280",
-                              border: "1px solid #e5e7eb",
-                              borderTop: "none",
+                              color: "#64748b",
+                              border: "none",
+                              borderBottom: "1px solid #f1f5f9",
                               backgroundColor: "inherit",
-                              fontSize: 13,
+                              fontSize: 12,
+                              fontWeight: 500,
+                              height: "28px",
+                              lineHeight: "16px",
                             }}
                           >
                             {index + 1}
                           </td>
                           <td
                             style={{
-                              padding: "4px 8px",
-                              color: "#1f2937",
-                              border: "1px solid #e5e7eb",
-                              borderTop: "none",
-                              borderLeft: "none",
+                              padding: "6px 12px",
+                              color: "#1e293b",
+                              border: "none",
+                              borderLeft: "1px solid #f1f5f9",
+                              borderBottom: "1px solid #f1f5f9",
                               backgroundColor: "inherit",
-                              fontSize: 13,
+                              fontSize: 12,
+                              fontWeight: 500,
+                              height: "28px",
+                              lineHeight: "16px",
                             }}
                           >
                             {member.name}
@@ -670,33 +763,39 @@ export default function AttendanceReportPage() {
                 overflowX: "auto",
                 overflowY: "auto",
                 flex: 1,
-                maxHeight: "75vh",
+                maxHeight: "80vh",
                 width: 0, // flex: 1과 함께 사용하여 남은 공간 차지
               }}
             >
-              <table style={{ borderCollapse: "collapse", fontSize: 12, width: sundays.length > 0 ? `${sundays.length * 45}px` : "auto", tableLayout: "fixed", borderSpacing: 0 }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 12, width: sundays.length > 0 ? `${sundays.length * 40}px` : "auto", tableLayout: "fixed", borderSpacing: 0 }}>
                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-                  <tr style={{ backgroundColor: "#f9fafb" }}>
-                    {sundays.map((sunday) => (
-                      <th
-                        key={sunday}
-                        style={{
-                          padding: "10px 8px",
-                          textAlign: "center",
-                          fontWeight: 600,
-                          color: "#6b7280",
-                          border: "1px solid #e5e7eb",
-                          borderLeft: "none",
-                          backgroundColor: "#f9fafb",
-                          fontSize: 12,
-                          minWidth: "45px",
-                          whiteSpace: "nowrap",
-                        }}
-                        title={sunday}
-                      >
-                        {formatDate(sunday)}
-                      </th>
-                    ))}
+                  <tr style={{ backgroundColor: "#f8fafc" }}>
+                    {sundays.map((sunday, index) => {
+                      const isMonthBorder = isMonthStart(sunday, index, sundays);
+                      return (
+                        <th
+                          key={sunday}
+                          style={{
+                            padding: "6px 6px",
+                            textAlign: "center",
+                            fontWeight: 700,
+                            color: "#475569",
+                            border: "none",
+                            borderLeft: isMonthBorder ? "2px solid #cbd5e1" : "1px solid #e2e8f0",
+                            borderBottom: "2px solid #e2e8f0",
+                            fontSize: 11,
+                            minWidth: "40px",
+                            whiteSpace: "nowrap",
+                            letterSpacing: "0.01em",
+                            height: "28px",
+                            lineHeight: "16px",
+                          }}
+                          title={sunday}
+                        >
+                          {formatDate(sunday, index, sundays)}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -704,8 +803,9 @@ export default function AttendanceReportPage() {
                     <>
                       {/* 출석률 행 */}
                       <tr style={{ backgroundColor: "#eff6ff" }}>
-                        {sundays.map((sunday) => {
+                        {sundays.map((sunday, index) => {
                           const rate = getAttendanceRate(sunday);
+                          const isMonthBorder = isMonthStart(sunday, index, sundays);
                           const getColor = () => {
                             if (rate >= 80) return "#059669";
                             if (rate >= 60) return "#d97706";
@@ -720,16 +820,17 @@ export default function AttendanceReportPage() {
                             <td
                               key={sunday}
                               style={{
-                                padding: "10px 8px",
+                                padding: "6px 6px",
                                 textAlign: "center",
                                 fontWeight: 700,
                                 color: getColor(),
                                 fontSize: 12,
-                                border: "1px solid #e5e7eb",
-                                borderTop: "none",
-                                borderLeft: "none",
+                                border: "none",
+                                borderLeft: isMonthBorder ? "2px solid #cbd5e1" : "1px solid #f1f5f9",
+                                borderBottom: "2px solid #e2e8f0",
                                 backgroundColor: getBgColor(),
-                                borderBottom: "2px solid #e5e7eb",
+                                height: "28px",
+                                lineHeight: "16px",
                               }}
                             >
                               {rate}%
@@ -751,26 +852,58 @@ export default function AttendanceReportPage() {
                             e.currentTarget.style.backgroundColor = "#ffffff";
                           }}
                         >
-                          {sundays.map((sunday) => {
+                          {sundays.map((sunday, index) => {
+                            const isMonthBorder = isMonthStart(sunday, index, sundays);
+                            
+                            // 멤버가 존재하기 전 날짜인지 확인
+                            const memberCreatedAt = member.created_at ? new Date(member.created_at) : null;
+                            const sundayDate = new Date(sunday);
+                            const memberExistsBeforeDate = !memberCreatedAt || memberCreatedAt <= sundayDate;
+                            
+                            // 멤버가 존재하지 않았던 기간은 빈 셀로 표시
+                            if (!memberExistsBeforeDate) {
+                              return (
+                                <td
+                                  key={sunday}
+                                  style={{
+                                    padding: "6px 4px",
+                                    textAlign: "center",
+                                    backgroundColor: "#f8fafc",
+                                    border: "none",
+                                    borderLeft: isMonthBorder ? "2px solid #cbd5e1" : "1px solid #f1f5f9",
+                                    borderBottom: "1px solid #f1f5f9",
+                                    fontSize: 12,
+                                    color: "#cbd5e1",
+                                    height: "28px",
+                                    lineHeight: "16px",
+                                  }}
+                                >
+                                </td>
+                              );
+                            }
+                            
                             const attended = records[member.id]?.[sunday] === true;
                             const checked = records[member.id]?.[sunday] !== undefined;
                             return (
                               <td
                                 key={sunday}
                                 style={{
-                                  padding: "4px 5px",
+                                  padding: "6px 4px",
                                   textAlign: "center",
                                   backgroundColor: attended
                                     ? "#d1fae5"
                                     : checked
                                     ? "#fee2e2"
-                                    : "inherit",
-                                  border: "1px solid #e5e7eb",
-                                  borderTop: "none",
-                                  borderLeft: "none",
+                                    : "#ffffff",
+                                  border: "none",
+                                  borderLeft: isMonthBorder ? "2px solid #cbd5e1" : "1px solid #f1f5f9",
+                                  borderBottom: "1px solid #f1f5f9",
                                   fontSize: 13,
-                                  color: attended ? "#059669" : checked ? "#dc2626" : "#9ca3af",
-                                  transition: "all 0.15s ease",
+                                  fontWeight: 600,
+                                  color: attended ? "#059669" : checked ? "#dc2626" : "#cbd5e1",
+                                  transition: "all 0.2s ease",
+                                  height: "28px",
+                                  lineHeight: "16px",
                                 }}
                                 onMouseEnter={(e) => {
                                   if (checked) {
