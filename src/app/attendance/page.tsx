@@ -249,6 +249,16 @@ export default function AttendancePage() {
 
         setLoading(false);
       } catch (err: any) {
+        // 리프레시 토큰 에러 처리
+        if (
+          err?.message?.includes("Invalid Refresh Token") ||
+          err?.message?.includes("Refresh Token Not Found") ||
+          err?.status === 401
+        ) {
+          await supabase.auth.signOut();
+          router.push("/login");
+          return;
+        }
         console.error("데이터 로드 에러:", err);
         setLoading(false);
       }
@@ -360,7 +370,19 @@ export default function AttendancePage() {
     const newStatus = !currentStatus;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+      
       if (!user) {
         alert("로그인이 필요합니다.");
         return;
@@ -391,6 +413,16 @@ export default function AttendancePage() {
         },
       }));
     } catch (err: any) {
+      // 리프레시 토큰 에러 처리
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found") ||
+        err?.status === 401
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
       console.error("출석 체크 에러:", err);
       alert("출석 체크 중 오류가 발생했습니다.");
     }
@@ -420,7 +452,20 @@ export default function AttendancePage() {
     try {
       const {
         data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
+
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        setSavingMember(false);
+        return;
+      }
 
       if (!user) {
         alert("로그인이 필요합니다.");
@@ -447,6 +492,17 @@ export default function AttendancePage() {
       setSingleFormData({ name: "", gender: "", birth_date: "" });
       alert("추가되었습니다.");
     } catch (err: any) {
+      // 리프레시 토큰 에러 처리
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found") ||
+        err?.status === 401
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        setSavingMember(false);
+        return;
+      }
       console.error("저장 에러:", err);
       alert("저장 중 오류가 발생했습니다.");
     } finally {
@@ -465,7 +521,20 @@ export default function AttendancePage() {
     try {
       const {
         data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
+
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        setSavingMember(false);
+        return;
+      }
 
       if (!user) {
         alert("로그인이 필요합니다.");
@@ -506,6 +575,17 @@ export default function AttendancePage() {
       setShowAddForm(false);
       alert(`${names.length}명이 추가되었습니다.`);
     } catch (err: any) {
+      // 리프레시 토큰 에러 처리
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found") ||
+        err?.status === 401
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        setSavingMember(false);
+        return;
+      }
       console.error("저장 에러:", err);
       alert("저장 중 오류가 발생했습니다.");
     } finally {
@@ -701,8 +781,29 @@ export default function AttendancePage() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", margin: 0 }}>
-          {userDepartment ? `${userDepartment} 출석체크` : "출석체크 통계"}
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          {userDepartment ? (
+            <>
+              {userDepartment} 출석체크
+              {(() => {
+                const deptMapping: Record<string, string> = {
+                  "아동부": "유치부",
+                  "중고등부": "청소년부",
+                };
+                const deptStats = stats.byDepartment[userDepartment];
+                if (deptStats?.manager) {
+                  return (
+                    <span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>
+                      (담당: {deptStats.manager.name}{deptStats.manager.position ? ` ${deptStats.manager.position}` : ""})
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </>
+          ) : (
+            "출석체크 통계"
+          )}
         </h1>
       </div>
 
@@ -830,6 +931,24 @@ export default function AttendancePage() {
                   오늘
                 </button>
               )}
+              {(() => {
+                // 부서명 매핑
+                const deptMapping: Record<string, string> = {
+                  "아동부": "유치부",
+                  "중고등부": "청소년부",
+                };
+                const deptStats = stats.byDepartment[userDepartment || ""];
+                if (deptStats) {
+                  const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 12 }}>
+                      <span style={{ fontSize: 14, color: "#1f2937" }}>{deptStats.attended}/{deptStats.total}명</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#10b981" }}>{rate}%</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
           {(() => {
@@ -906,9 +1025,6 @@ export default function AttendancePage() {
           border: "1px solid #e5e7eb",
         }}
       >
-        <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0 }}>교회학교 출석현황</h2>
-        </div>
         <div style={{ display: "flex", flexDirection: "column", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
           {(() => {
             // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
@@ -974,42 +1090,6 @@ export default function AttendancePage() {
                       }
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                      <Link
-                        href={`/attendance/${encodeURIComponent(dept)}`}
-                        onClick={(e) => {
-                          if (isAdmin) {
-                            e.stopPropagation();
-                          }
-                        }}
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 600,
-                          color: "#1f2937",
-                          minWidth: 70,
-                          textDecoration: "none",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {dept}
-                      </Link>
-                      <div style={{ fontSize: 14, color: "#6b7280", minWidth: 0, flex: 1 }}>
-                        {deptStats.manager ? (
-                          <>
-                            (담당: {deptStats.manager.name}
-                            {deptStats.manager.position && ` ${deptStats.manager.position}`})
-                          </>
-                        ) : (
-                          <span style={{ color: "#9ca3af" }}>-</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 14, color: "#1f2937", minWidth: 80 }}>
-                        {deptStats.attended}/{deptStats.total}명
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: "#10b981", minWidth: 60, textAlign: "right" }}>
-                        {rate}%
-                      </div>
-                    </div>
                   </div>
                   {isExpanded && (
                     <div style={{ backgroundColor: "#f9fafb", borderTop: "1px solid #e5e7eb", padding: "12px 16px" }}>
@@ -1020,6 +1100,9 @@ export default function AttendancePage() {
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                           <thead>
                             <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                              <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: 50 }}>
+                                번호
+                              </th>
                               <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
                                 이름
                               </th>
@@ -1047,6 +1130,9 @@ export default function AttendancePage() {
                                     backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
                                   }}
                                 >
+                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>
+                                    {idx + 1}
+                                  </td>
                                   <td style={{ padding: "10px 12px", fontSize: 13, color: "#1f2937" }}>
                                     {member.name}
                                   </td>
