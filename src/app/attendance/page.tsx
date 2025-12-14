@@ -67,6 +67,7 @@ export default function AttendancePage() {
   const [showManagerCalendar, setShowManagerCalendar] = useState(false);
   const adminCalendarAnchorRef = useRef<HTMLHeadingElement | null>(null);
   const managerCalendarAnchorRef = useRef<HTMLHeadingElement | null>(null);
+  const [reports, setReports] = useState<Record<string, Record<string, boolean>>>({}); // department -> sunday_date -> true
 
   // 날짜 계산 헬퍼 함수들
   const getSundayForDate = (date: Date): string => {
@@ -588,6 +589,32 @@ export default function AttendancePage() {
           setRecords(recordsMap);
         }
 
+        // 출석 보고 기록 불러오기 (최근 8주분 로드)
+        const uniqueSundays: string[] = [];
+        for (let weekOffset = 0; weekOffset < 8; weekOffset++) {
+          const sunday = new Date(currentSunday);
+          sunday.setDate(new Date(currentSunday).getDate() - (weekOffset * 7));
+          uniqueSundays.push(getSundayForDate(sunday));
+        }
+
+        const { data: reportsData, error: reportsError } = await supabase
+          .from("attendance_reports")
+          .select("*")
+          .in("sunday_date", uniqueSundays);
+
+        if (reportsError) {
+          console.error("출석 보고 기록 조회 에러:", reportsError);
+        } else {
+          const reportsMap: Record<string, Record<string, boolean>> = {};
+          (reportsData as { department: string; sunday_date: string }[]).forEach((report) => {
+            if (!reportsMap[report.department]) {
+              reportsMap[report.department] = {};
+            }
+            reportsMap[report.department][report.sunday_date] = true;
+          });
+          setReports(reportsMap);
+        }
+
         setLoading(false);
       } catch (err: any) {
         // 리프레시 토큰 에러 처리
@@ -607,6 +634,188 @@ export default function AttendancePage() {
 
     loadData();
   }, [router]);
+
+  // 출석 보고 기록 실시간 구독 (Supabase Realtime)
+  useEffect(() => {
+    if (!hasPermission) return;
+
+    const reportsChannel = supabase
+      .channel("attendance_reports_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // INSERT, UPDATE, DELETE 모두 구독
+          schema: "public",
+          table: "attendance_reports",
+        },
+        (payload) => {
+          console.log("📥 보고완료 기록 변경 감지:", payload);
+          console.log("📥 payload.eventType:", payload.eventType);
+          console.log("📥 payload.new:", payload.new);
+          console.log("📥 payload.old:", payload.old);
+          
+          // 실시간으로 reports state 업데이트
+          setReports((prev) => {
+            const newReports = { ...prev };
+            
+            // INSERT/UPDATE의 경우 payload.new 사용, DELETE의 경우 payload.old 사용
+            let department: string | undefined;
+            let sundayDate: string | undefined;
+            
+            if (payload.eventType === "DELETE") {
+              // DELETE 이벤트는 payload.old에 삭제된 행의 정보가 있어야 함
+              // REPLICA IDENTITY FULL이 설정되어 있지 않으면 payload.old가 비어있을 수 있음
+              const oldData = payload.old as { department?: string; sunday_date?: string } | null;
+              department = oldData?.department;
+              sundayDate = oldData?.sunday_date;
+              console.log("🗑️ DELETE 이벤트 - department:", department, "sundayDate:", sundayDate, "payload.old:", payload.old);
+              
+              // payload.old가 없거나 필요한 데이터가 없는 경우
+              // REPLICA IDENTITY FULL이 설정되지 않았을 수 있으므로, 전체 reports를 다시 로드
+              if (!department || !sundayDate) {
+                console.warn("⚠️ DELETE 이벤트에서 department 또는 sundayDate를 찾을 수 없음. REPLICA IDENTITY FULL이 설정되어 있는지 확인하세요. 전체 데이터를 다시 로드합니다.", { payload });
+                
+                // 최근 8주간의 보고완료 기록을 다시 가져옴
+                const today = new Date();
+                const currentSunday = getSundayForDate(today);
+                const uniqueSundays: string[] = [];
+                for (let weekOffset = 0; weekOffset < 8; weekOffset++) {
+                  const sunday = new Date(currentSunday);
+                  sunday.setDate(new Date(currentSunday).getDate() - (weekOffset * 7));
+                  uniqueSundays.push(getSundayForDate(sunday));
+                }
+                
+                supabase
+                  .from("attendance_reports")
+                  .select("department, sunday_date")
+                  .in("sunday_date", uniqueSundays)
+                  .then(({ data, error }) => {
+                    if (error) {
+                      console.error("보고완료 기록 재로드 에러:", error);
+                      return;
+                    }
+                    const reportsMap: Record<string, Record<string, boolean>> = {};
+                    (data || []).forEach((report: { department: string; sunday_date: string }) => {
+                      if (!reportsMap[report.department]) {
+                        reportsMap[report.department] = {};
+                      }
+                      reportsMap[report.department][report.sunday_date] = true;
+                    });
+                    setReports(reportsMap);
+                    console.log("✅ 보고완료 기록 재로드 완료:", reportsMap);
+                  });
+                
+                // 즉시 업데이트하지 않고 재로드 대기
+                return prev;
+              }
+            } else {
+              // INSERT/UPDATE 이벤트는 payload.new에 새/업데이트된 행의 정보가 있음
+              const newData = payload.new as { department?: string; sunday_date?: string } | null;
+              department = newData?.department;
+              sundayDate = newData?.sunday_date;
+              console.log("✅ INSERT/UPDATE 이벤트 - department:", department, "sundayDate:", sundayDate);
+            }
+
+            if (!department || !sundayDate) {
+              console.warn("⚠️ department 또는 sundayDate가 없음:", { department, sundayDate, payload });
+              return prev;
+            }
+
+            if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+              // 보고완료 추가 또는 업데이트
+              if (!newReports[department]) {
+                newReports[department] = {};
+              }
+              newReports[department][sundayDate] = true;
+              console.log("✅ 보고완료 기록 추가/업데이트 완료:", { department, sundayDate });
+            } else if (payload.eventType === "DELETE") {
+              // 보고완료 삭제
+              if (newReports[department]) {
+                delete newReports[department][sundayDate];
+                // 부서가 비어있으면 부서도 삭제
+                if (Object.keys(newReports[department]).length === 0) {
+                  delete newReports[department];
+                }
+                console.log("🗑️ 보고완료 기록 삭제 완료:", { department, sundayDate });
+              } else {
+                console.warn("⚠️ 삭제하려는 department가 reports에 없음:", department);
+              }
+            }
+
+            return newReports;
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log("📡 보고완료 기록 채널 구독 상태:", status);
+      });
+
+    return () => {
+      console.log("🔌 보고완료 기록 채널 구독 해제");
+      supabase.removeChannel(reportsChannel);
+    };
+  }, [hasPermission]);
+
+  // 출석 기록 실시간 구독 (Supabase Realtime)
+  useEffect(() => {
+    if (!hasPermission) return;
+
+    const recordsChannel = supabase
+      .channel("attendance_records_changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // INSERT, UPDATE, DELETE 모두 구독
+          schema: "public",
+          table: "attendance_records",
+        },
+        (payload) => {
+          console.log("📥 출석 기록 변경 감지:", payload);
+          // 실시간으로 records state 업데이트
+          setRecords((prev) => {
+            const newRecords = { ...prev };
+            const newData = payload.new as { member_id?: string; date?: string; attended?: boolean } | null;
+            const oldData = payload.old as { member_id?: string; date?: string } | null;
+            const memberId = newData?.member_id || oldData?.member_id;
+            const date = newData?.date || oldData?.date;
+
+            if (!memberId || !date) {
+              console.warn("⚠️ memberId 또는 date가 없음:", { memberId, date, payload });
+              return prev;
+            }
+
+            if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+              // 출석 기록 추가 또는 업데이트
+              if (!newRecords[memberId]) {
+                newRecords[memberId] = {};
+              }
+              newRecords[memberId][date] = newData?.attended || false;
+              console.log("✅ 출석 기록 업데이트:", { memberId, date, attended: newData?.attended });
+            } else if (payload.eventType === "DELETE") {
+              // 출석 기록 삭제
+              if (newRecords[memberId]) {
+                delete newRecords[memberId][date];
+                // 멤버가 비어있으면 멤버도 삭제
+                if (Object.keys(newRecords[memberId]).length === 0) {
+                  delete newRecords[memberId];
+                }
+              }
+              console.log("🗑️ 출석 기록 삭제:", { memberId, date });
+            }
+
+            return newRecords;
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log("📡 출석 기록 채널 구독 상태:", status);
+      });
+
+    return () => {
+      console.log("🔌 출석 기록 채널 구독 해제");
+      supabase.removeChannel(recordsChannel);
+    };
+  }, [hasPermission]);
 
   // 통계 계산
   const stats = useMemo(() => {
@@ -733,6 +942,7 @@ export default function AttendancePage() {
         return;
       }
 
+      console.log("💾 출석 기록 저장 시도:", { memberId, date, attended: newStatus });
       const { error } = await supabase.from("attendance_records").upsert(
         {
           member_id: memberId,
@@ -745,11 +955,12 @@ export default function AttendancePage() {
       );
 
       if (error) {
-        console.error("출석 기록 저장 에러:", error);
+        console.error("❌ 출석 기록 저장 에러:", error);
         alert("출석 기록 저장 중 오류가 발생했습니다.");
         return;
       }
 
+      console.log("✅ 출석 기록 저장 성공 (로컬 state 업데이트)");
       setRecords((prev) => ({
         ...prev,
         [memberId]: {
@@ -1009,6 +1220,149 @@ export default function AttendancePage() {
     } catch (err: any) {
       console.error("삭제 에러:", err);
       alert("삭제 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleReport = async (department: string, sundayDate: string) => {
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      console.log("💾 보고완료 저장 시도:", { department, sundayDate });
+      const { error } = await supabase.from("attendance_reports").upsert(
+        {
+          department: department,
+          sunday_date: sundayDate,
+          reported_by: user.id,
+        },
+        {
+          onConflict: "department,sunday_date",
+        }
+      );
+
+      if (error) {
+        console.error("❌ 보고완료 저장 에러:", {
+          error,
+          errorStringified: JSON.stringify(error, null, 2),
+          message: error?.message,
+          details: error?.details,
+          hint: error?.hint,
+          code: error?.code,
+          department,
+          sundayDate,
+        });
+        const errorMessage = error?.message || error?.details || "알 수 없는 오류";
+        alert(`보고완료 저장 중 오류가 발생했습니다: ${errorMessage}`);
+        return;
+      }
+
+      console.log("✅ 보고완료 저장 성공 (로컬 state 업데이트)");
+      // State 업데이트
+      setReports((prev) => ({
+        ...prev,
+        [department]: {
+          ...(prev[department] || {}),
+          [sundayDate]: true,
+        },
+      }));
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found") ||
+        err?.status === 401
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+      console.error("보고완료 에러:", err);
+      alert("보고완료 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleUnreport = async (department: string, sundayDate: string) => {
+    if (!confirm(`${department}의 보고완료를 해제하시겠습니까? 출석을 수정할 수 있게 됩니다.`)) {
+      return;
+    }
+
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (
+        authError &&
+        (authError.message?.includes("Invalid Refresh Token") ||
+          authError.message?.includes("Refresh Token Not Found") ||
+          authError.status === 401)
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+
+      if (!user) {
+        alert("로그인이 필요합니다.");
+        return;
+      }
+
+      console.log("💾 보고완료 해제 시도:", { department, sundayDate });
+      const { error } = await supabase
+        .from("attendance_reports")
+        .delete()
+        .eq("department", department)
+        .eq("sunday_date", sundayDate);
+
+      if (error) {
+        console.error("❌ 보고완료 해제 에러:", error);
+        alert("보고완료 해제 중 오류가 발생했습니다.");
+        return;
+      }
+
+      console.log("✅ 보고완료 해제 성공 (로컬 state 업데이트)");
+      // State 업데이트
+      setReports((prev) => {
+        const newReports = { ...prev };
+        if (newReports[department]) {
+          delete newReports[department][sundayDate];
+          // 부서가 비어있으면 부서도 삭제
+          if (Object.keys(newReports[department]).length === 0) {
+            delete newReports[department];
+          }
+        }
+        return newReports;
+      });
+    } catch (err: any) {
+      if (
+        err?.message?.includes("Invalid Refresh Token") ||
+        err?.message?.includes("Refresh Token Not Found") ||
+        err?.status === 401
+      ) {
+        await supabase.auth.signOut();
+        router.push("/login");
+        return;
+      }
+      console.error("보고완료 해제 에러:", err);
+      alert("보고완료 해제 중 오류가 발생했습니다.");
     }
   };
 
@@ -1366,6 +1720,48 @@ export default function AttendancePage() {
                         <div style={{ fontSize: 14, fontWeight: 600, color: rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444", minWidth: 50, textAlign: "right" }}>
                           {rate}%
                         </div>
+                        {(() => {
+                          const adminSundayDate = adminSelectedSunday || currentWeekDates[0];
+                          const isReported = reports[dept]?.[adminSundayDate] === true;
+                          return (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+                              {isReported && (
+                                <button
+                                  onClick={() => handleUnreport(dept, adminSundayDate)}
+                                  style={{
+                                    padding: "4px 12px",
+                                    borderRadius: 6,
+                                    border: "1px solid #3b82f6",
+                                    background: "#ffffff",
+                                    color: "#3b82f6",
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  수정
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleReport(dept, adminSundayDate)}
+                                disabled={true}
+                                style={{
+                                  padding: "4px 12px",
+                                  borderRadius: 6,
+                                  border: "1px solid #e5e7eb",
+                                  background: isReported ? "#10b981" : "#f3f4f6",
+                                  color: isReported ? "#ffffff" : "#6b7280",
+                                  fontSize: 12,
+                                  fontWeight: 500,
+                                  cursor: "not-allowed",
+                                  opacity: 0.6,
+                                }}
+                              >
+                                보고완료
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </>
                     ) : (
                       <div style={{ fontSize: 14, color: "#9ca3af", marginLeft: "auto" }}>데이터 없음</div>
@@ -1499,10 +1895,27 @@ export default function AttendancePage() {
                 const deptStats = stats.byDepartment[userDepartment || ""];
                 if (deptStats) {
                   const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+                  const isReported = reports[userDepartment || ""]?.[managerSundayDate] === true;
                   return (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 12 }}>
                       <span style={{ fontSize: 14, color: "#1f2937" }}>{deptStats.attended}/{deptStats.total}명</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: "#10b981" }}>{rate}%</span>
+                      <button
+                        onClick={() => handleReport(userDepartment || "", managerSundayDate)}
+                        disabled={isReported}
+                        style={{
+                          padding: "4px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #e5e7eb",
+                          background: isReported ? "#10b981" : "#f3f4f6",
+                          color: isReported ? "#ffffff" : "#6b7280",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          cursor: isReported ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {isReported ? "보고완료" : "보고하기"}
+                      </button>
                     </div>
                   );
                 }
@@ -1552,29 +1965,32 @@ export default function AttendancePage() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {deptMembers.map((member) => {
                   const attended = records[member.id]?.[managerSundayDate] === true;
+                  const isReported = reports[userDepartment || ""]?.[managerSundayDate] === true;
                   return (
                     <button
                       key={member.id}
                       onClick={() => toggleAttendance(member.id, managerSundayDate)}
+                      disabled={isReported}
                       style={{
                         padding: "2px 2px",
                         borderRadius: 8,
                         border: `1px solid ${attended ? "#3b82f6" : "#e5e7eb"}`,
-                        background: attended ? "#3b82f6" : "#ffffff",
-                        color: attended ? "#ffffff" : "#1f2937",
+                        background: attended ? "#3b82f6" : isReported ? "#f3f4f6" : "#ffffff",
+                        color: attended ? "#ffffff" : isReported ? "#9ca3af" : "#1f2937",
                         fontSize: 15,
                         fontWeight: 500,
-                        cursor: "pointer",
+                        cursor: isReported ? "not-allowed" : "pointer",
                         transition: "all 0.2s ease",
+                        opacity: isReported ? 0.6 : 1,
                       }}
                       onMouseEnter={(e) => {
-                        if (!attended) {
+                        if (!attended && !isReported) {
                           e.currentTarget.style.background = "#f3f4f6";
                           e.currentTarget.style.borderColor = "#d1d5db";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (!attended) {
+                        if (!attended && !isReported) {
                           e.currentTarget.style.background = "#ffffff";
                           e.currentTarget.style.borderColor = "#e5e7eb";
                         }
@@ -1592,104 +2008,96 @@ export default function AttendancePage() {
 
       {/* 교회학교 출석현황 (부서 담당자만) */}
       {!isAdmin && (
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            padding: "16px",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden" }}>
-            {(() => {
-              // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
-              const deptMapping: Record<string, string> = {
-                "아동부": "유치부",
-                "중고등부": "청소년부",
-              };
+        <div>
+          {(() => {
+            // 부서명 매핑 (데이터베이스에 저장된 이름 -> 화면에 표시할 이름)
+            const deptMapping: Record<string, string> = {
+              "아동부": "유치부",
+              "중고등부": "청소년부",
+            };
+            
+            // 표시할 부서 목록 필터링 (관리자가 아니면 해당 부서만)
+            const displayDepartments = userDepartment 
+              ? departments.filter(dept => dept === userDepartment)
+              : departments;
+            
+            return displayDepartments.map((dept, index) => {
+              const deptStats = stats.byDepartment[dept];
+              const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
               
-              // 표시할 부서 목록 필터링 (관리자가 아니면 해당 부서만)
-              const displayDepartments = userDepartment 
-                ? departments.filter(dept => dept === userDepartment)
-                : departments;
-              
-              return displayDepartments.map((dept, index) => {
-                const deptStats = stats.byDepartment[dept];
-                const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
-                
-                // 해당 부서의 명단 필터링
-                const deptMembers = members.filter((m) => {
-                  const mappedDept = deptMapping[m.department || ""] || m.department;
-                  return mappedDept === dept || m.department === dept;
-                }).sort((a, b) => a.name.localeCompare(b.name));
+              // 해당 부서의 명단 필터링
+              const deptMembers = members.filter((m) => {
+                const mappedDept = deptMapping[m.department || ""] || m.department;
+                return mappedDept === dept || m.department === dept;
+              }).sort((a, b) => a.name.localeCompare(b.name));
 
-                return (
-                  <div key={dept}>
-                    <div style={{ backgroundColor: "#f9fafb", borderTop: "1px solid #e5e7eb", padding: "12px 16px" }}>
-                      <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 12, fontWeight: 500 }}>
-                        명단 ({deptMembers.length}명)
-                      </div>
-                      <div style={{ border: "1px solid #e5e7eb", borderRadius: 8, overflow: "hidden", backgroundColor: "#ffffff" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                          <thead>
-                            <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-                              <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: 50 }}>
-                                번호
-                              </th>
-                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                                이름
-                              </th>
-                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                                성별
-                              </th>
-                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                                생년월일
-                              </th>
-                              <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-                                출석
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {deptMembers.map((member, idx) => {
-                              // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
-                              const displaySundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
-                              const isAttended = records[member.id]?.[displaySundayDate] === true;
-                              return (
-                                <tr
-                                  key={member.id}
-                                  style={{
-                                    borderBottom: idx < deptMembers.length - 1 ? "1px solid #e5e7eb" : "none",
-                                    backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
-                                  }}
-                                >
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>
-                                    {idx + 1}
-                                  </td>
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#1f2937" }}>
-                                    {member.name}
-                                  </td>
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
-                                    {member.gender || "-"}
-                                  </td>
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
-                                    {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
-                                  </td>
-                                  <td style={{ padding: "10px 12px", fontSize: 13, color: isAttended ? "#10b981" : "#9ca3af" }}>
-                                    {isAttended ? "출석" : "-"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                );
+              return (
+                <div
+                  key={dept}
+                  style={{
+                    backgroundColor: "#ffffff",
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    overflow: "hidden",
+                  }}
+                >
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+                        <th style={{ padding: "10px 12px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: 50 }}>
+                          번호
+                        </th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                          이름
+                        </th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                          성별
+                        </th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                          생년월일
+                        </th>
+                        <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
+                          출석
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {deptMembers.map((member, idx) => {
+                        // 부서담당자가 주일을 선택했으면 그것을 사용, 아니면 현재 주 일요일 사용
+                        const displaySundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
+                        const isAttended = records[member.id]?.[displaySundayDate] === true;
+                        return (
+                          <tr
+                            key={member.id}
+                            style={{
+                              borderBottom: idx < deptMembers.length - 1 ? "1px solid #e5e7eb" : "none",
+                              backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
+                            }}
+                          >
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280", textAlign: "center" }}>
+                              {idx + 1}
+                            </td>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#1f2937" }}>
+                              {member.name}
+                            </td>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
+                              {member.gender || "-"}
+                            </td>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: "#6b7280" }}>
+                              {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
+                            </td>
+                            <td style={{ padding: "10px 12px", fontSize: 13, color: isAttended ? "#10b981" : "#9ca3af" }}>
+                              {isAttended ? "출석" : "-"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              );
               });
             })()}
-          </div>
         </div>
       )}
 
