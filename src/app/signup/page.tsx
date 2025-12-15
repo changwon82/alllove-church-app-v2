@@ -139,6 +139,36 @@ export default function SignupPage() {
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          onClick={() => router.push("/")}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "none",
+            background: "#f3f4f6",
+            color: "#6b7280",
+            fontSize: 20,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#e5e7eb";
+            e.currentTarget.style.color = "#374151";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "#f3f4f6";
+            e.currentTarget.style.color = "#6b7280";
+          }}
+        >
+          ×
+        </button>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div
             style={{
@@ -302,7 +332,7 @@ export default function SignupPage() {
         </form>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+          <p style={{ fontSize: 13, color: "#6b7280", margin: 0, marginBottom: 12 }}>
             이미 계정이 있으신가요?{" "}
             <Link
               href="/login"
@@ -315,6 +345,17 @@ export default function SignupPage() {
               로그인
             </Link>
           </p>
+          <Link
+            href="/"
+            style={{
+              fontSize: 13,
+              color: "#6b7280",
+              fontWeight: 500,
+              textDecoration: "none",
+            }}
+          >
+            ← 홈으로 돌아가기
+          </Link>
         </div>
       </div>
 

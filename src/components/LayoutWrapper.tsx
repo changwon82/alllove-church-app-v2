@@ -44,8 +44,8 @@ export default function LayoutWrapper({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // 로그인/회원가입 페이지는 레이아웃 적용 안 함
-  if (pathname === "/login" || pathname === "/signup") {
+  // 로그인/회원가입/비밀번호 재설정 페이지는 레이아웃 적용 안 함
+  if (pathname === "/login" || pathname === "/signup" || pathname === "/reset-password" || pathname === "/forgot-password") {
     return <>{children}</>;
   }
 

@@ -148,6 +148,14 @@ export default function ProfilePage() {
   const [position, setPosition] = useState("");
   const [department, setDepartment] = useState("");
   const [gender, setGender] = useState("");
+  
+  // 비밀번호 변경 관련 상태
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [skipCurrentPassword, setSkipCurrentPassword] = useState(false);
 
   const calculateAge = (birthDate: string | null): number | null => {
     if (!birthDate) return null;
@@ -753,6 +761,79 @@ export default function ProfilePage() {
     }
   };
 
+  const handlePasswordChange = async () => {
+    setErrorMsg(null);
+
+    // 현재 비밀번호 확인이 필요한 경우 (skipCurrentPassword가 false일 때)
+    if (!skipCurrentPassword && !currentPassword) {
+      setErrorMsg("현재 비밀번호를 입력해주세요.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setErrorMsg("새 비밀번호는 6자 이상이어야 합니다.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setErrorMsg("새 비밀번호가 일치하지 않습니다.");
+      return;
+    }
+
+    setChangingPassword(true);
+    setErrorMsg(null);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user || !user.email) {
+        setErrorMsg("사용자 정보를 가져올 수 없습니다.");
+        setChangingPassword(false);
+        return;
+      }
+
+      // 현재 비밀번호 확인이 필요한 경우에만 확인
+      if (!skipCurrentPassword) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+
+        if (signInError) {
+          setErrorMsg("현재 비밀번호가 올바르지 않습니다.");
+          setChangingPassword(false);
+          return;
+        }
+      }
+
+      // 비밀번호 업데이트
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setErrorMsg(updateError.message || "비밀번호 변경에 실패했습니다.");
+        setChangingPassword(false);
+        return;
+      }
+
+      // 성공
+      alert("비밀번호가 성공적으로 변경되었습니다.");
+      setShowPasswordChange(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setSkipCurrentPassword(false);
+    } catch (err: any) {
+      console.error("비밀번호 변경 에러:", err);
+      setErrorMsg(err.message ?? "비밀번호 변경 중 오류가 발생했습니다.");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -1076,6 +1157,57 @@ export default function ProfilePage() {
             </span>
           </div>
 
+          {/* 비밀번호 */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingBottom: "12px",
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            <span style={{ fontSize: 14, color: "#6b7280" }}>비밀번호</span>
+            <button
+              onClick={async () => {
+                // URL에서 recovery 타입인지 확인 (비밀번호 재설정 후)
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const type = hashParams.get("type");
+                const urlParams = new URLSearchParams(window.location.search);
+                const typeFromQuery = urlParams.get("type");
+                
+                // recovery 타입이면 현재 비밀번호 확인 건너뛰기
+                const isRecovery = type === "recovery" || typeFromQuery === "recovery";
+                setSkipCurrentPassword(isRecovery);
+                setShowPasswordChange(true);
+                
+                // URL에서 hash 제거 (한 번만 적용)
+                if (isRecovery && window.location.hash) {
+                  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+                }
+              }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: "1px solid #3b82f6",
+                background: "#ffffff",
+                color: "#3b82f6",
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#eff6ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#ffffff";
+              }}
+            >
+              비밀번호 변경
+            </button>
+          </div>
+
           {/* 담당부서 */}
           <div
             style={{
@@ -1255,6 +1387,275 @@ export default function ProfilePage() {
           로그아웃
         </button>
       </div>
+
+      {/* 비밀번호 변경 모달 */}
+      {showPasswordChange && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => {
+            if (!changingPassword) {
+              setShowPasswordChange(false);
+              setCurrentPassword("");
+              setNewPassword("");
+              setConfirmPassword("");
+              setErrorMsg(null);
+              setSkipCurrentPassword(false);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: "16px",
+              padding: isMobile ? "24px" : "32px",
+              maxWidth: isMobile ? "calc(100vw - 40px)" : "400px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: 600,
+                  color: "#1f2937",
+                  margin: 0,
+                }}
+              >
+                비밀번호 변경
+              </h2>
+              <button
+                onClick={() => {
+                  if (!changingPassword) {
+                    setShowPasswordChange(false);
+                    setCurrentPassword("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    setErrorMsg(null);
+                    setSkipCurrentPassword(false);
+                  }
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: changingPassword ? "not-allowed" : "pointer",
+                  color: "#6b7280",
+                  padding: 0,
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                disabled={changingPassword}
+              >
+                ×
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div
+                style={{
+                  marginBottom: 16,
+                  padding: "12px",
+                  backgroundColor: "#fef2f2",
+                  color: "#dc2626",
+                  border: "1px solid #fecaca",
+                  borderRadius: 8,
+                  fontSize: 13,
+                }}
+              >
+                {errorMsg}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {skipCurrentPassword && (
+                <div
+                  style={{
+                    padding: "12px",
+                    backgroundColor: "#eff6ff",
+                    color: "#1e40af",
+                    border: "1px solid #bfdbfe",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    marginBottom: 8,
+                  }}
+                >
+                  ℹ️ 비밀번호 재설정 링크를 통해 접속하셨으므로 현재 비밀번호 확인을 건너뜁니다.
+                </div>
+              )}
+              
+              {!skipCurrentPassword && (
+                <div>
+                  <label
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "#374151",
+                      display: "block",
+                      marginBottom: 6,
+                    }}
+                  >
+                    현재 비밀번호
+                  </label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    disabled={changingPassword}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 14,
+                    }}
+                    required
+                  />
+                </div>
+              )}
+
+              <div>
+                <label
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "#374151",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  새 비밀번호
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  disabled={changingPassword}
+                  placeholder="6자 이상 입력해주세요"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 14,
+                  }}
+                  required
+                  minLength={6}
+                />
+                <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 4, margin: 0 }}>
+                  최소 6자 이상 입력해주세요
+                </p>
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    color: "#374151",
+                    display: "block",
+                    marginBottom: 6,
+                  }}
+                >
+                  새 비밀번호 확인
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={changingPassword}
+                  placeholder="새 비밀번호를 다시 입력해주세요"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 14,
+                  }}
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  marginTop: 8,
+                }}
+              >
+                <button
+                  onClick={() => {
+                    if (!changingPassword) {
+                      setShowPasswordChange(false);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                      setErrorMsg(null);
+                      setSkipCurrentPassword(false);
+                    }
+                  }}
+                  disabled={changingPassword}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "1px solid #e5e7eb",
+                    background: "#ffffff",
+                    color: "#374151",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    cursor: changingPassword ? "not-allowed" : "pointer",
+                  }}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handlePasswordChange}
+                  disabled={changingPassword}
+                  style={{
+                    flex: 1,
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: changingPassword ? "#d1d5db" : "#3b82f6",
+                    color: "#ffffff",
+                    fontWeight: 600,
+                    fontSize: "14px",
+                    cursor: changingPassword ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {changingPassword ? "변경 중..." : "변경하기"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 프로필 사진/아이콘 선택 모달 */}
       {showAvatarSelector && (
