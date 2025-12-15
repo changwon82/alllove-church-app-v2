@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
 export default function Home() {
   const router = useRouter();
@@ -191,6 +192,20 @@ export default function Home() {
             >
               회원가입
             </button>
+          </div>
+
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <Link
+              href="/forgot-password"
+              style={{
+                fontSize: 13,
+                color: "#3b82f6",
+                fontWeight: 500,
+                textDecoration: "none",
+              }}
+            >
+              아이디 / 비밀번호 찾기
+            </Link>
           </div>
         </div>
       </div>
