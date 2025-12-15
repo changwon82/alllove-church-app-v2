@@ -3574,7 +3574,6 @@ export default function AttendancePage() {
                   borderRadius: 8,
                   border: "1px solid #e5e7eb",
                   fontSize: isMobile ? 13 : 14,
-                  fontSize: 14,
                   fontFamily: "inherit",
                   resize: "vertical",
                   outline: "none",
