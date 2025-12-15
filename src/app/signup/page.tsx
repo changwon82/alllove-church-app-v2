@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [kakaoLoading, setKakaoLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -104,6 +105,33 @@ export default function SignupPage() {
       setErrorMsg(err.message ?? "알 수 없는 오류가 발생했습니다.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKakaoLogin = async () => {
+    setErrorMsg(null);
+    setKakaoLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "kakao",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            theme: "light",
+          },
+        },
+      });
+
+      if (error) {
+        setErrorMsg(error.message || "카카오 로그인에 실패했습니다.");
+        setKakaoLoading(false);
+      }
+      // 성공 시 자동으로 리다이렉트되므로 여기서는 아무것도 하지 않음
+    } catch (err: any) {
+      console.error("카카오 로그인 에러:", err);
+      setErrorMsg(err.message ?? "카카오 로그인 중 오류가 발생했습니다.");
+      setKakaoLoading(false);
     }
   };
 
@@ -330,6 +358,62 @@ export default function SignupPage() {
             {loading ? "처리 중..." : "회원가입"}
           </button>
         </form>
+
+        <div style={{ marginTop: 24, marginBottom: 24 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
+            <span style={{ fontSize: 12, color: "#9ca3af" }}>또는</span>
+            <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleKakaoLogin}
+            disabled={kakaoLoading || loading}
+            style={{
+              width: "100%",
+              padding: "12px 24px",
+              borderRadius: 6,
+              border: "none",
+              background: kakaoLoading || loading ? "#d1d5db" : "#FEE500",
+              color: "#000000",
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: kakaoLoading || loading ? "not-allowed" : "pointer",
+              transition: "all 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+            }}
+            onMouseEnter={(e) => {
+              if (!kakaoLoading && !loading) {
+                e.currentTarget.style.background = "#FDD835";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!kakaoLoading && !loading) {
+                e.currentTarget.style.background = "#FEE500";
+              }
+            }}
+          >
+            {kakaoLoading ? (
+              "연결 중..."
+            ) : (
+              <>
+                <span style={{ fontSize: 18 }}>💬</span>
+                카카오톡으로 시작하기
+              </>
+            )}
+          </button>
+        </div>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
           <p style={{ fontSize: 13, color: "#6b7280", margin: 0, marginBottom: 12 }}>

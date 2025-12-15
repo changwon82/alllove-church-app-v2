@@ -11,6 +11,7 @@ export default function Home() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [kakaoLoading, setKakaoLoading] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -143,6 +144,82 @@ export default function Home() {
           </p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              onClick={async () => {
+                setKakaoLoading(true);
+                try {
+                  const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: "kakao",
+                    options: {
+                      redirectTo: `${window.location.origin}/auth/callback`,
+                      queryParams: {
+                        theme: "light",
+                        // 동의 항목을 명시적으로 지정하지 않음 (카카오 개발자 콘솔 설정에 따름)
+                      },
+                    },
+                  });
+
+                  if (error) {
+                    console.error("카카오 로그인 에러:", error);
+                    setKakaoLoading(false);
+                  }
+                  // 성공 시 자동으로 리다이렉트되므로 여기서는 아무것도 하지 않음
+                } catch (err: any) {
+                  console.error("카카오 로그인 에러:", err);
+                  setKakaoLoading(false);
+                }
+              }}
+              disabled={kakaoLoading}
+              style={{
+                width: "100%",
+                padding: "12px 24px",
+                borderRadius: 8,
+                border: "none",
+                background: kakaoLoading ? "#d1d5db" : "#FEE500",
+                color: "#000000",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: kakaoLoading ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+              onMouseEnter={(e) => {
+                if (!kakaoLoading) {
+                  e.currentTarget.style.background = "#FDD835";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!kakaoLoading) {
+                  e.currentTarget.style.background = "#FEE500";
+                }
+              }}
+            >
+              {kakaoLoading ? (
+                "연결 중..."
+              ) : (
+                <>
+                  <span style={{ fontSize: 18 }}>💬</span>
+                  카카오톡으로 시작하기
+                </>
+              )}
+            </button>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                margin: "16px 0",
+              }}
+            >
+              <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
+              <span style={{ fontSize: 12, color: "#9ca3af" }}>또는</span>
+              <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
+            </div>
+
             <button
               onClick={() => router.push("/login")}
               style={{
