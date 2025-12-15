@@ -154,7 +154,6 @@ export default function Home() {
                       redirectTo: `${window.location.origin}/auth/callback`,
                       queryParams: {
                         theme: "light",
-                        // 동의 항목을 명시적으로 지정하지 않음 (카카오 개발자 콘솔 설정에 따름)
                       },
                     },
                   });
