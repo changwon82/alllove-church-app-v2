@@ -226,8 +226,7 @@ export default function ProfilePage() {
           if (
             error.message?.includes("Bucket not found") ||
             error.message?.includes("bucket") ||
-            error.message?.includes("does not exist") ||
-            error.statusCode === "404"
+            error.message?.includes("does not exist")
           ) {
             setBucketAvailable(false);
             return;
