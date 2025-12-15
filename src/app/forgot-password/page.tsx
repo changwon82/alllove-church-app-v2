@@ -9,7 +9,6 @@ export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
   const [mode, setMode] = useState<"find-id" | "find-password">("find-id");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -23,12 +22,12 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      // 이름과 전화번호로 프로필 찾기
+      // 이름과 이메일로 프로필 찾기
       const { data, error } = await supabase
         .from("profiles")
-        .select("email, full_name, phone")
+        .select("email, full_name")
         .eq("full_name", name.trim())
-        .eq("phone", phone.trim())
+        .eq("email", email.trim())
         .maybeSingle();
 
       if (error) {
@@ -37,7 +36,7 @@ export default function ForgotPasswordPage() {
       }
 
       if (!data || !data.email) {
-        setErrorMsg("일치하는 계정을 찾을 수 없습니다. 이름과 전화번호를 확인해주세요.");
+        setErrorMsg("일치하는 계정을 찾을 수 없습니다. 이름과 이메일을 확인해주세요.");
         return;
       }
 
@@ -151,6 +150,8 @@ export default function ForgotPasswordPage() {
               setErrorMsg(null);
               setSuccessMsg(null);
               setFoundEmail(null);
+              setEmail("");
+              setName("");
             }}
             style={{
               flex: 1,
@@ -173,6 +174,8 @@ export default function ForgotPasswordPage() {
               setErrorMsg(null);
               setSuccessMsg(null);
               setFoundEmail(null);
+              setEmail("");
+              setName("");
             }}
             style={{
               flex: 1,
@@ -231,13 +234,13 @@ export default function ForgotPasswordPage() {
                   marginBottom: 6,
                 }}
               >
-                전화번호
+                이메일
               </label>
               <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010-1234-5678"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@email.com"
                 style={{
                   width: "100%",
                   padding: "10px 12px",
