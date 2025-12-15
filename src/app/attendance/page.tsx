@@ -2793,7 +2793,23 @@ export default function AttendancePage() {
             const deptMembers = members
               .filter((m) => {
                 const mappedDept = deptMapping[m.department || ""] || m.department;
-                return mappedDept === userDepartment || m.department === userDepartment;
+                const isDeptMatch = mappedDept === userDepartment || m.department === userDepartment;
+                
+                // 등록일 이후의 주일부터만 표시
+                if (!isDeptMatch) return false;
+                
+                if (m.created_at && managerSundayDate) {
+                  const memberCreatedDate = new Date(m.created_at);
+                  const memberCreatedSunday = getSundayForDate(memberCreatedDate);
+                  const selectedSundayDate = new Date(managerSundayDate);
+                  const memberSundayDate = new Date(memberCreatedSunday);
+                  
+                  // 선택된 주일이 멤버 등록일의 주일 이후이거나 같으면 표시
+                  return selectedSundayDate >= memberSundayDate;
+                }
+                
+                // created_at이 없으면 기존처럼 표시 (하위 호환성)
+                return true;
               })
               .sort((a, b) => a.name.localeCompare(b.name));
 
