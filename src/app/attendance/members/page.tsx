@@ -45,6 +45,10 @@ export default function AttendanceMembersPage() {
   // 삭제 모드 관리
   const [isDeleteMode, setIsDeleteMode] = useState(false);
   const [selectedDeleteIds, setSelectedDeleteIds] = useState<Set<string>>(new Set());
+  
+  // 수정 모드 관리
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -143,6 +147,8 @@ export default function AttendanceMembersPage() {
       setJustSavedIds(new Set());
       setIsDeleteMode(false);
       setSelectedDeleteIds(new Set());
+      setIsEditMode(false);
+      setEditingMemberId(null);
       
       // 입력 행 초기화
       setPendingMembers([]);
@@ -253,12 +259,22 @@ export default function AttendanceMembersPage() {
       department: member.department || "",
     });
     setEditingId(member.id);
+    setEditingMemberId(member.id);
     setShowAddForm(true);
+    setIsEditMode(false); // 수정 모드 종료
+  };
+  
+  const toggleEditMode = () => {
+    setIsEditMode(!isEditMode);
+    if (isEditMode) {
+      setEditingMemberId(null);
+    }
   };
 
   const handleCancel = () => {
     setShowAddForm(false);
     setEditingId(null);
+    setEditingMemberId(null);
     setFormData({ name: "", gender: "", birth_date: "", department: "" });
   };
 
@@ -319,6 +335,8 @@ export default function AttendanceMembersPage() {
 
       await loadMembers(isAdmin, isAdmin ? selectedDepartment : userDepartment);
       handleCancel();
+      setIsEditMode(false);
+      setEditingMemberId(null);
       alert(editingId ? "수정되었습니다." : "추가되었습니다.");
     } catch (err: any) {
       console.error("저장 에러:", err);
@@ -330,6 +348,21 @@ export default function AttendanceMembersPage() {
 
   // 플러스 버튼으로 새 입력 행 추가
   const handleAddPendingRow = () => {
+    // 모바일 청년부에서는 팝업으로 추가
+    if (isMobile && !isAdmin && userDepartment === "청년부") {
+      const targetDepartment = isAdmin ? (selectedDepartment || null) : (userDepartment || null);
+      setFormData({
+        name: "",
+        gender: "",
+        birth_date: "",
+        department: targetDepartment || "",
+      });
+      setEditingId(null);
+      setShowAddForm(true);
+      return;
+    }
+    
+    // 데스크탑이나 다른 경우는 기존 방식대로
     const targetDepartment = isAdmin ? (selectedDepartment || null) : (userDepartment || null);
     const newPending: PendingMember = {
       id: `pending-${Date.now()}-${Math.random()}`,
@@ -779,20 +812,65 @@ export default function AttendanceMembersPage() {
         );
       })()}
 
-      {/* 추가/수정 폼 */}
+      {/* 추가/수정 폼 - 모달 팝업 */}
       {showAddForm && (
         <div
           style={{
-            backgroundColor: "#ffffff",
-            borderRadius: 8,
-            padding: "20px",
-            border: "1px solid #e5e7eb",
-            marginBottom: 16,
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCancel();
+            }
           }}
         >
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", marginBottom: 16 }}>
-            {editingId ? "수정" : "추가"}
-          </h2>
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              borderRadius: 12,
+              padding: "24px",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              maxWidth: "600px",
+              width: "90%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: "#1f2937", margin: 0 }}>
+              {editingId ? "회원 정보 수정" : "회원 추가"}
+            </h2>
+            <button
+              onClick={handleCancel}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: 24,
+                color: "#6b7280",
+                cursor: "pointer",
+                padding: 0,
+                width: 28,
+                height: 28,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              title="닫기"
+            >
+              ×
+            </button>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
@@ -822,9 +900,19 @@ export default function AttendanceMembersPage() {
                 style={{
                   width: "100%",
                   padding: "8px 10px",
+                  paddingRight: isMobile && !isAdmin && userDepartment === "청년부" ? "40px" : "10px",
                   borderRadius: 6,
                   border: "1px solid #e5e7eb",
                   fontSize: 13,
+                  WebkitAppearance: "none",
+                  MozAppearance: "none",
+                  appearance: "none",
+                  backgroundImage: isMobile && !isAdmin && userDepartment === "청년부" 
+                    ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E\")"
+                    : "none",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: isMobile && !isAdmin && userDepartment === "청년부" ? "right 12px center" : "right center",
+                  backgroundSize: "12px",
                 }}
               >
                 <option value="">선택 안 함</option>
@@ -849,6 +937,7 @@ export default function AttendanceMembersPage() {
                 }}
               />
             </div>
+            {!(isMobile && !isAdmin && userDepartment === "청년부") && (
             <div>
               <label style={{ fontSize: 12, fontWeight: 500, color: "#374151", display: "block", marginBottom: 6 }}>
                 부서
@@ -872,40 +961,42 @@ export default function AttendanceMembersPage() {
                 ))}
               </select>
             </div>
+            )}
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button
-              onClick={handleSave}
-              disabled={saving || !formData.name.trim()}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 6,
-                border: "none",
-                background: saving || !formData.name.trim() ? "#d1d5db" : "#10b981",
-                color: "#ffffff",
-                fontWeight: 500,
-                fontSize: 13,
-                cursor: saving || !formData.name.trim() ? "not-allowed" : "pointer",
-              }}
-            >
-              {saving ? "저장 중..." : "저장"}
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={saving}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 6,
-                border: "1px solid #e5e7eb",
-                background: "#ffffff",
-                color: "#374151",
-                fontWeight: 500,
-                fontSize: 13,
-                cursor: saving ? "not-allowed" : "pointer",
-              }}
-            >
-              취소
-            </button>
+            <div style={{ display: "flex", gap: 8, marginTop: 20, justifyContent: "flex-end" }}>
+              <button
+                onClick={handleCancel}
+                disabled={saving}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontWeight: 500,
+                  fontSize: 13,
+                  cursor: saving ? "not-allowed" : "pointer",
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !formData.name.trim()}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: saving || !formData.name.trim() ? "#d1d5db" : "#10b981",
+                  color: "#ffffff",
+                  fontWeight: 500,
+                  fontSize: 13,
+                  cursor: saving || !formData.name.trim() ? "not-allowed" : "pointer",
+                }}
+              >
+                {saving ? "저장 중..." : "저장"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -923,34 +1014,34 @@ export default function AttendanceMembersPage() {
         }}
       >
         <div style={{ overflowX: isMobile ? "visible" : (!isAdmin && userDepartment === "청년부" ? "visible" : "auto"), width: "100%" }}>
-          <table style={{ width: isMobile ? "100%" : (!isAdmin && userDepartment === "청년부" ? "800px" : "auto"), borderCollapse: "collapse", fontSize: isMobile ? 9 : 13, tableLayout: isMobile ? "fixed" : (!isAdmin && userDepartment === "청년부" ? "fixed" : "auto") }}>
+          <table style={{ width: isMobile ? "100%" : (!isAdmin && userDepartment === "청년부" ? "800px" : "auto"), borderCollapse: "collapse", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), tableLayout: isMobile ? "fixed" : (!isAdmin && userDepartment === "청년부" ? "fixed" : "auto") }}>
             <thead>
               <tr style={{ backgroundColor: "#f9fafb" }}>
                 <th
                   style={{
-                    padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px",
+                    padding: (!isAdmin && userDepartment === "청년부") ? "6px 2px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px"),
                     textAlign: "center",
                     fontWeight: 600,
                     color: "#374151",
                     borderBottom: "1px solid #e5e7eb",
                     whiteSpace: "nowrap",
                     width: isMobile ? "7%" : (!isAdmin && userDepartment === "청년부" ? "32px" : "auto"),
-                    fontSize: isMobile ? 9 : 13,
+                    fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13),
                   }}
                 >
-                  번호
+                  {!(isMobile && !isAdmin && userDepartment === "청년부") ? "번호" : ""}
                 </th>
                 {!(isMobile && !isAdmin && userDepartment === "청년부") && (
                 <th
                   style={{
-                    padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px",
+                    padding: (!isAdmin && userDepartment === "청년부") ? "6px 2px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px"),
                     textAlign: "center",
                     fontWeight: 600,
                     color: "#374151",
                     borderBottom: "1px solid #e5e7eb",
                     whiteSpace: "nowrap",
                     width: isMobile ? "12%" : "auto",
-                    fontSize: isMobile ? 9 : 13,
+                    fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13),
                   }}
                 >
                   부서
@@ -958,42 +1049,42 @@ export default function AttendanceMembersPage() {
                 )}
                 <th
                   style={{
-                    padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px",
+                    padding: (!isAdmin && userDepartment === "청년부") ? "6px 2px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px"),
                     textAlign: "left",
                     fontWeight: 600,
                     color: "#374151",
                     borderBottom: "1px solid #e5e7eb",
                     whiteSpace: "nowrap",
                     width: isMobile ? (isMobile && !isAdmin && userDepartment === "청년부" ? "30%" : "25%") : "auto",
-                    fontSize: isMobile ? 9 : 13,
+                    fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13),
                   }}
                 >
                   이름
                 </th>
                 <th
                   style={{
-                    padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px",
+                    padding: (!isAdmin && userDepartment === "청년부") ? "6px 2px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px"),
                     textAlign: "left",
                     fontWeight: 600,
                     color: "#374151",
                     borderBottom: "1px solid #e5e7eb",
                     whiteSpace: "nowrap",
                     width: isMobile ? (isMobile && !isAdmin && userDepartment === "청년부" ? "30%" : "26%") : "auto",
-                    fontSize: isMobile ? 9 : 13,
+                    fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13),
                   }}
                 >
                   생년월일
                 </th>
                 <th
                   style={{
-                    padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px",
+                    padding: (!isAdmin && userDepartment === "청년부") ? "6px 2px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "3px 1px" : "2px 1px") : "6px"),
                     textAlign: "center",
                     fontWeight: 600,
                     color: "#374151",
                     borderBottom: "1px solid #e5e7eb",
                     whiteSpace: "nowrap",
                     width: isMobile ? (isMobile && !isAdmin && userDepartment === "청년부" ? "40%" : "30%") : "auto",
-                    fontSize: isMobile ? 9 : 13,
+                    fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13),
                   }}
                 >
                   {!isDeleteMode && (
@@ -1013,9 +1104,10 @@ export default function AttendanceMembersPage() {
                           alignItems: "center",
                           justifyContent: "center",
                           width: isMobile ? "24px" : "28px",
-                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
                           minWidth: isMobile ? "24px" : "28px",
-                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
+                          boxSizing: "border-box",
                         }}
                       >
                         +
@@ -1035,13 +1127,40 @@ export default function AttendanceMembersPage() {
                           alignItems: "center",
                           justifyContent: "center",
                           width: isMobile ? "24px" : "28px",
-                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
                           minWidth: isMobile ? "24px" : "28px",
-                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
+                          boxSizing: "border-box",
                         }}
                       >
                         -
                       </button>
+                      {!isAdmin && userDepartment === "청년부" && (
+                        <button
+                          onClick={toggleEditMode}
+                          style={{
+                            padding: isMobile ? "2px 4px" : "4px 8px",
+                            borderRadius: 4,
+                            border: "1px solid #e5e7eb",
+                            background: isEditMode ? "#3b82f6" : "#ffffff",
+                            color: isEditMode ? "#ffffff" : "#3b82f6",
+                            fontSize: isMobile ? 12 : 14,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: isMobile ? "24px" : "28px",
+                            height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
+                            minWidth: isMobile ? "24px" : "28px",
+                            minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
+                            boxSizing: "border-box",
+                          }}
+                          title="수정"
+                        >
+                          ✏️
+                        </button>
+                      )}
                     </div>
                   )}
                   {isDeleteMode && (
@@ -1097,21 +1216,21 @@ export default function AttendanceMembersPage() {
               {/* 추가 입력 행들 */}
               {pendingMembers.map((pending, idx) => (
                 <tr key={pending.id} style={{ borderBottom: "1px solid #e5e7eb", backgroundColor: "#fef3c7" }}>
-                  <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", color: "#6b7280", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                  <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", color: "#6b7280", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                     {members.length + idx + 1}
                   </td>
                   {!(isMobile && !isAdmin && userDepartment === "청년부") ? (
-                  <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                  <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
                     <select
                       value={pending.department}
                       onChange={(e) => handlePendingFieldChange(pending.id, "department", e.target.value)}
                       style={{
-                        padding: isMobile ? "1px 2px" : "4px 6px",
+                        padding: (isMobile && !isAdmin && userDepartment === "청년부") ? "4px 5px" : ((!isAdmin && userDepartment === "청년부") ? "6px 8px" : (isMobile ? "1px 2px" : "4px 6px")),
                         borderRadius: 4,
                         border: "1px solid #d1d5db",
-                        fontSize: isMobile ? 9 : 12,
+                        fontSize: (isMobile && !isAdmin && userDepartment === "청년부") ? 8 : ((!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 12)),
                         width: "100%",
-                        minWidth: isMobile ? "50px" : "80px",
+                        minWidth: (isMobile && !isAdmin && userDepartment === "청년부") ? "30px" : (isMobile ? "50px" : "80px"),
                       }}
                     >
                       <option value="">선택 안 함</option>
@@ -1123,32 +1242,32 @@ export default function AttendanceMembersPage() {
                     </select>
                   </td>
                   ) : null}
-                  <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "left", whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                    <div style={{ display: "flex", gap: isMobile ? 1 : 4, alignItems: "center", justifyContent: "flex-start", flexWrap: "nowrap" }}>
+                  <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "14px 6px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "left", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                    <div style={{ display: "flex", gap: (isMobile && !isAdmin && userDepartment === "청년부") ? 4 : (isMobile ? 1 : 4), alignItems: "center", justifyContent: "flex-start", flexWrap: "nowrap" }}>
                       <input
                         type="text"
                         value={pending.name}
                         onChange={(e) => handlePendingFieldChange(pending.id, "name", e.target.value)}
                         placeholder="이름"
                         style={{
-                          padding: isMobile ? "1px 2px" : "4px 6px",
-                          borderRadius: 4,
-                          border: "1px solid #d1d5db",
-                          fontSize: isMobile ? 9 : 12,
-                          width: isMobile ? "50px" : "80px",
-                          minWidth: isMobile ? "40px" : "80px",
+                        padding: (isMobile && !isAdmin && userDepartment === "청년부") ? "4px 5px" : ((!isAdmin && userDepartment === "청년부") ? "6px 8px" : (isMobile ? "1px 2px" : "4px 6px")),
+                        borderRadius: 4,
+                        border: "1px solid #d1d5db",
+                        fontSize: (isMobile && !isAdmin && userDepartment === "청년부") ? 8 : ((!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 12)),
+                        width: (isMobile && !isAdmin && userDepartment === "청년부") ? "80px" : (isMobile ? "50px" : "80px"),
+                        minWidth: (isMobile && !isAdmin && userDepartment === "청년부") ? "64px" : (isMobile ? "40px" : "80px"),
                         }}
                       />
                       <select
                         value={pending.gender}
                         onChange={(e) => handlePendingFieldChange(pending.id, "gender", e.target.value)}
                         style={{
-                          padding: isMobile ? "1px 2px" : "4px 6px",
-                          borderRadius: 4,
-                          border: "1px solid #d1d5db",
-                          fontSize: isMobile ? 9 : 12,
-                          width: isMobile ? "35px" : "50px",
-                          minWidth: isMobile ? "30px" : "50px",
+                        padding: (isMobile && !isAdmin && userDepartment === "청년부") ? "4px 8px 4px 5px" : ((!isAdmin && userDepartment === "청년부") ? "6px 8px" : (isMobile ? "1px 2px" : "4px 6px")),
+                        borderRadius: 4,
+                        border: "1px solid #d1d5db",
+                        fontSize: (isMobile && !isAdmin && userDepartment === "청년부") ? 8 : ((!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 12)),
+                        width: (isMobile && !isAdmin && userDepartment === "청년부") ? "80px" : (isMobile ? "35px" : "50px"),
+                        minWidth: (isMobile && !isAdmin && userDepartment === "청년부") ? "72px" : (isMobile ? "30px" : "50px"),
                         }}
                       >
                         <option value="">-</option>
@@ -1157,21 +1276,40 @@ export default function AttendanceMembersPage() {
                       </select>
                     </div>
                   </td>
-                  <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "left", whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                    <input
-                      type="date"
-                      value={pending.birth_date}
-                      onChange={(e) => handlePendingFieldChange(pending.id, "birth_date", e.target.value)}
-                      style={{
-                        padding: isMobile ? "1px 2px" : "4px 6px",
-                        borderRadius: 4,
-                        border: "1px solid #d1d5db",
-                        fontSize: isMobile ? 9 : 12,
-                        width: isMobile ? "100%" : "auto",
-                      }}
-                    />
+                  <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "14px 6px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "left", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                    <div style={{ position: "relative", display: "inline-block", marginLeft: (isMobile && !isAdmin && userDepartment === "청년부") ? "8px" : "0" }}>
+                      <input
+                        type="date"
+                        value={pending.birth_date}
+                        onChange={(e) => handlePendingFieldChange(pending.id, "birth_date", e.target.value)}
+                        style={{
+                          padding: (isMobile && !isAdmin && userDepartment === "청년부") ? "4px 5px" : ((!isAdmin && userDepartment === "청년부") ? "6px 8px" : (isMobile ? "1px 2px" : "4px 6px")),
+                          borderRadius: 4,
+                          border: "1px solid #d1d5db",
+                          fontSize: (isMobile && !isAdmin && userDepartment === "청년부") ? 8 : ((!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 12)),
+                          width: (isMobile && !isAdmin && userDepartment === "청년부") ? "32px" : (isMobile ? "100%" : "auto"),
+                          color: (isMobile && !isAdmin && userDepartment === "청년부") ? "transparent" : "inherit",
+                          cursor: "pointer",
+                        }}
+                      />
+                      {(isMobile && !isAdmin && userDepartment === "청년부") && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            left: "8px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            pointerEvents: "none",
+                            fontSize: "14px",
+                            color: "#6b7280",
+                          }}
+                        >
+                          📅
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                  <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "12px 6px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
                     <div style={{ display: "flex", gap: isMobile ? 2 : 4, justifyContent: (isMobile && !isAdmin && userDepartment === "청년부") ? "flex-end" : "center", alignItems: "center", whiteSpace: "nowrap" }}>
                       <button
                         onClick={() => {
@@ -1197,9 +1335,9 @@ export default function AttendanceMembersPage() {
                           alignItems: "center",
                           justifyContent: "center",
                           width: isMobile ? "24px" : "28px",
-                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
                           minWidth: isMobile ? "24px" : "28px",
-                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
                         }}
                       >
                         -
@@ -1220,9 +1358,9 @@ export default function AttendanceMembersPage() {
                           alignItems: "center",
                           justifyContent: "center",
                           width: isMobile ? "24px" : "28px",
-                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
                           minWidth: isMobile ? "24px" : "28px",
-                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "28px",
+                          minHeight: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "28px",
                         }}
                       >
                         +
@@ -1241,8 +1379,8 @@ export default function AttendanceMembersPage() {
                             fontWeight: 600,
                             cursor: isSavingPending || pendingMembers.every((p) => !p.name.trim()) ? "not-allowed" : "pointer",
                             minWidth: isMobile ? "35px" : "auto",
-                            height: isMobile ? ((!isAdmin && userDepartment === "청년부") ? "16px" : "auto") : "auto",
-                            minHeight: isMobile ? ((!isAdmin && userDepartment === "청년부") ? "16px" : "24px") : "auto",
+                            height: isMobile ? ((!isAdmin && userDepartment === "청년부") ? "21px" : "auto") : "auto",
+                            minHeight: isMobile ? ((!isAdmin && userDepartment === "청년부") ? "21px" : "24px") : "auto",
                           }}
                         >
                           {isSavingPending ? "저장 중..." : "저장"}
@@ -1286,22 +1424,79 @@ export default function AttendanceMembersPage() {
                         backgroundColor: isJustSaved ? "#fef3c7" : "transparent",
                       }}
                     >
-                      <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", color: "#6b7280", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                      <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", color: "#6b7280", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                         {index + 1}
                       </td>
                       {!(isMobile && !isAdmin && userDepartment === "청년부") && (
-                      <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", color: "#374151", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                      <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", color: "#374151", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                         {displayDepartment || "-"}
                       </td>
                       )}
-                      <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "left", fontWeight: 500, color: "#1f2937", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                        {member.name}
-                        {member.gender || age !== null ? ` (${member.gender || "?"}/${age !== null ? age : "?"})` : ""}
+                      <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "left", fontWeight: 500, color: "#1f2937", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        {isMobile && !isAdmin && userDepartment === "청년부" ? (
+                          <span>
+                            {member.name}
+                            {member.gender || age !== null ? ` (${member.gender || "?"}/${age !== null ? age : "?"})` : ""}
+                          </span>
+                        ) : (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span>
+                              {member.name}
+                              {member.gender || age !== null ? ` (${member.gender || "?"}/${age !== null ? age : "?"})` : ""}
+                            </span>
+                            {isEditMode && !isAdmin && userDepartment === "청년부" && (
+                              <button
+                                onClick={() => handleEdit(member)}
+                                style={{
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  border: "1px solid #e5e7eb",
+                                  background: "#ffffff",
+                                  color: "#3b82f6",
+                                  fontSize: 12,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                }}
+                                title="수정"
+                              >
+                                ✏️
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "left", color: "#374151", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
-                        {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
+                      <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "left", color: "#374151", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span>
+                            {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
+                          </span>
+                          {isEditMode && isMobile && !isAdmin && userDepartment === "청년부" && (
+                            <button
+                              onClick={() => handleEdit(member)}
+                              style={{
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                                border: "1px solid #e5e7eb",
+                                background: "#ffffff",
+                                color: "#3b82f6",
+                                fontSize: 12,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                height: "21px",
+                                minHeight: "21px",
+                              }}
+                              title="수정"
+                            >
+                              ✏️
+                            </button>
+                          )}
+                        </div>
                       </td>
-                      <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                      <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
                         {isDeleteMode && (
                           <input
                             type="checkbox"
@@ -1321,7 +1516,17 @@ export default function AttendanceMembersPage() {
               {inactiveMembers.length > 0 && (
                 <>
                   <tr>
-                    <td colSpan={!(isMobile && !isAdmin && userDepartment === "청년부") ? 5 : 4} style={{ padding: isMobile ? "4px" : "12px", borderTop: "2px solid #9ca3af", backgroundColor: "#f3f4f6" }}>
+                    <td 
+                      colSpan={!(isMobile && !isAdmin && userDepartment === "청년부") ? 5 : 4} 
+                      style={{ 
+                        padding: isMobile ? "4px" : "12px", 
+                        borderTop: "2px solid #9ca3af", 
+                        backgroundColor: "#f3f4f6", 
+                        width: "100%",
+                        display: "table-cell",
+                        boxSizing: "border-box"
+                      }}
+                    >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ fontSize: isMobile ? 9 : 12, fontWeight: 600, color: "#6b7280" }}>
                           제적 처리된 멤버
@@ -1349,22 +1554,22 @@ export default function AttendanceMembersPage() {
                           backgroundColor: "#f9fafb",
                         }}
                       >
-                        <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", color: "#9ca3af", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", color: "#9ca3af", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                           {inactiveNumber}
                         </td>
                         {!(isMobile && !isAdmin && userDepartment === "청년부") && (
-                        <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", color: "#9ca3af", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", color: "#9ca3af", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                           {displayDepartment || "-"}
                         </td>
                         )}
-                        <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "left", fontWeight: 500, color: "#6b7280", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "left", fontWeight: 500, color: "#6b7280", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                           {member.name}
                           {member.gender || age !== null ? ` (${member.gender || "?"}/${age !== null ? age : "?"})` : ""}
                         </td>
-                        <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "left", color: "#9ca3af", fontSize: isMobile ? 9 : 13, whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "left", color: "#9ca3af", fontSize: (!isAdmin && userDepartment === "청년부") ? 13 : (isMobile ? 9 : 13), whiteSpace: "nowrap", verticalAlign: "middle" }}>
                         {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
                       </td>
-                        <td style={{ padding: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px", textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
+                        <td style={{ padding: (!isAdmin && userDepartment === "청년부") ? "6px 3px" : (isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "2px 1px" : "1px 1px") : "6px"), textAlign: "center", whiteSpace: "nowrap", verticalAlign: "middle" }}>
                           <div style={{ display: "flex", gap: isMobile ? 3 : 6, justifyContent: "center", alignItems: "center", whiteSpace: "nowrap" }}>
                           <button
                               onClick={() => handleRestoreMember(member.id, member.name)}
@@ -1379,7 +1584,7 @@ export default function AttendanceMembersPage() {
                                 cursor: "pointer",
                                 transition: "all 0.2s ease",
                                 minWidth: isMobile ? "38px" : "auto",
-                                height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "auto") : "auto",
+                                height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "auto") : "auto",
                                 lineHeight: isMobile ? "1" : "normal",
                               }}
                               onMouseEnter={(e) => {
@@ -1406,7 +1611,7 @@ export default function AttendanceMembersPage() {
                                 cursor: "pointer",
                                 transition: "all 0.2s ease",
                                 minWidth: isMobile ? "55px" : "auto",
-                                height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "16px" : "auto") : "auto",
+                                height: isMobile ? ((isMobile && !isAdmin && userDepartment === "청년부") ? "21px" : "auto") : "auto",
                                 lineHeight: isMobile ? "1" : "normal",
                               }}
                               onMouseEnter={(e) => {

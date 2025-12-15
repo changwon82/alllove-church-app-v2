@@ -329,18 +329,18 @@ export default function AttendanceReportPage() {
     
     // 이전 주일이 다른 월이면 월 표시 포함
     if (index === 0) {
-    return `${month}/${day}`;
+    return { month, day, showMonth: true };
     }
     
     const prevSunday = new Date(sundays[index - 1]);
     const prevMonth = prevSunday.getMonth() + 1;
     
     if (month !== prevMonth) {
-      return `${month}/${day}`;
+      return { month, day, showMonth: true };
     }
     
     // 같은 월이면 일만 표시
-    return `${day}`;
+    return { month, day, showMonth: false };
   };
   
   // 해당 주일이 월의 시작인지 확인
@@ -772,6 +772,7 @@ export default function AttendanceReportPage() {
                   <tr style={{ backgroundColor: "#f8fafc" }}>
                     {sundays.map((sunday, index) => {
                       const isMonthBorder = isMonthStart(sunday, index, sundays);
+                      const dateInfo = formatDate(sunday, index, sundays);
                       return (
                       <th
                         key={sunday}
@@ -792,7 +793,13 @@ export default function AttendanceReportPage() {
                         }}
                         title={sunday}
                       >
-                          {formatDate(sunday, index, sundays)}
+                          {dateInfo.showMonth ? (
+                            <span>
+                              <span style={{ color: "#3b82f6" }}>{dateInfo.month}</span>/{dateInfo.day}
+                            </span>
+                          ) : (
+                            dateInfo.day
+                          )}
                       </th>
                       );
                     })}
