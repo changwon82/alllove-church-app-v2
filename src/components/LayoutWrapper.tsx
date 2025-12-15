@@ -84,6 +84,10 @@ export default function LayoutWrapper({
           padding: isMobile ? "56px 12px 12px 12px" : "20px",
           transition: "margin-left 0.3s ease, padding 0.3s ease",
           minHeight: "100vh",
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+          boxSizing: "border-box",
         }}
       >
         {children}

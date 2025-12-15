@@ -329,7 +329,7 @@ export default function AttendanceReportPage() {
     
     // 이전 주일이 다른 월이면 월 표시 포함
     if (index === 0) {
-      return `${month}/${day}`;
+    return `${month}/${day}`;
     }
     
     const prevSunday = new Date(sundays[index - 1]);
@@ -366,10 +366,10 @@ export default function AttendanceReportPage() {
       const memberExistsBeforeDate = !memberCreatedAt || memberCreatedAt <= sundayDate;
       
       if (memberExistsBeforeDate) {
-        if (records[member.id]?.[sunday] !== undefined) {
-          total++;
-          if (records[member.id][sunday]) {
-            attended++;
+      if (records[member.id]?.[sunday] !== undefined) {
+        total++;
+        if (records[member.id][sunday]) {
+          attended++;
           }
         }
       }
@@ -561,24 +561,24 @@ export default function AttendanceReportPage() {
               };
               
               return currentMemberCount > 0 ? (
-                <div
-                  style={{
-                    fontSize: 13,
-                    marginLeft: isMobile ? 0 : "auto",
+              <div
+                style={{
+                  fontSize: 13,
+                  marginLeft: isMobile ? 0 : "auto",
                     padding: "6px 14px",
                     backgroundColor: "#f1f5f9",
                     borderRadius: 8,
                     fontWeight: 600,
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
                     color: "#475569",
-                  }}
-                >
+                }}
+              >
                   <span style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>
                     {formatReferenceDate()} 기준
                   </span>{" "}
                   총 <span style={{ fontWeight: 700, color: "#334155" }}>{currentMemberCount}</span>명
-                </div>
+              </div>
               ) : null;
             })()}
       </div>
@@ -773,11 +773,11 @@ export default function AttendanceReportPage() {
                     {sundays.map((sunday, index) => {
                       const isMonthBorder = isMonthStart(sunday, index, sundays);
                       return (
-                        <th
-                          key={sunday}
-                          style={{
+                      <th
+                        key={sunday}
+                        style={{
                             padding: "6px 6px",
-                            textAlign: "center",
+                          textAlign: "center",
                             fontWeight: 700,
                             color: "#475569",
                             border: "none",
@@ -785,15 +785,15 @@ export default function AttendanceReportPage() {
                             borderBottom: "2px solid #e2e8f0",
                             fontSize: 11,
                             minWidth: "40px",
-                            whiteSpace: "nowrap",
+                          whiteSpace: "nowrap",
                             letterSpacing: "0.01em",
                             height: "28px",
                             lineHeight: "16px",
-                          }}
-                          title={sunday}
-                        >
+                        }}
+                        title={sunday}
+                      >
                           {formatDate(sunday, index, sundays)}
-                        </th>
+                      </th>
                       );
                     })}
                   </tr>

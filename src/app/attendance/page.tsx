@@ -75,6 +75,7 @@ function DepartmentMembersTable({
   onStatusPrayerClick,
   onSaveStatusPrayer,
   isReported,
+  isMobile = false,
 }: {
   deptMembers: AttendanceMember[];
   records: Record<string, Record<string, boolean>>;
@@ -83,6 +84,7 @@ function DepartmentMembersTable({
   onStatusPrayerClick: (memberId: string, date: string, currentText: string) => void;
   onSaveStatusPrayer?: (memberId: string, date: string, text: string) => Promise<void>;
   isReported?: boolean;
+  isMobile?: boolean;
 }) {
   const [editingMemberIds, setEditingMemberIds] = useState<Set<string>>(new Set());
   const [editTexts, setEditTexts] = useState<Record<string, string>>({});
@@ -141,14 +143,15 @@ function DepartmentMembersTable({
 
   return (
     <div>
-      {hasEditingItems && (
+        {hasEditingItems && (
         <div style={{ 
-          marginTop: 12, 
-          marginBottom: 12, 
-          marginRight: 12,
+          marginTop: isMobile ? 8 : 12, 
+          marginBottom: isMobile ? 8 : 12, 
+          marginRight: isMobile ? 8 : 12,
           display: "flex", 
           justifyContent: "flex-end", 
-          gap: 10,
+          gap: isMobile ? 8 : 10,
+          flexWrap: isMobile ? "wrap" : "nowrap",
         }}>
           <button
             onClick={() => {
@@ -156,12 +159,12 @@ function DepartmentMembersTable({
               setEditTexts({});
             }}
             style={{
-              padding: "5px 20px",
+              padding: isMobile ? "6px 16px" : "5px 20px",
               borderRadius: 8,
               border: "1px solid #e5e7eb",
               background: "#ffffff",
               color: "#6b7280",
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
               fontWeight: 500,
               cursor: "pointer",
               transition: "all 0.2s ease",
@@ -182,12 +185,12 @@ function DepartmentMembersTable({
             onClick={handleSaveAll}
             disabled={isReported}
             style={{
-              padding: "5px 20px",
+              padding: isMobile ? "6px 16px" : "5px 20px",
               borderRadius: 8,
               border: "none",
               background: isReported ? "#9ca3af" : "#3b82f6",
               color: "#ffffff",
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
               fontWeight: 500,
               cursor: isReported ? "not-allowed" : "pointer",
               opacity: isReported ? 0.6 : 1,
@@ -211,23 +214,66 @@ function DepartmentMembersTable({
           </button>
         </div>
       )}
-      <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-        <thead>
-          <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-            <th style={{ padding: "10px 6px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: "35px" }}>
-              번호
-            </th>
-            <th style={{ padding: "10px 6px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: "100px" }}>
-              이름
-            </th>
-            <th style={{ padding: "10px 6px", textAlign: "center", fontSize: 12, fontWeight: 600, color: "#6b7280", width: "45px" }}>
-              출석
-            </th>
-          <th style={{ padding: "10px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#6b7280" }}>
-            현황&기도제목
-          </th>
-          </tr>
-        </thead>
+      <div style={{ 
+        overflowX: isMobile ? "auto" : "visible", 
+        WebkitOverflowScrolling: "touch",
+        width: "100%",
+        maxWidth: "100%",
+      }}>
+        <table style={{ 
+          width: isMobile ? "max-content" : "100%", 
+          borderCollapse: "collapse", 
+          tableLayout: isMobile ? "auto" : "fixed",
+          minWidth: isMobile ? "100%" : undefined,
+          maxWidth: "100%",
+        }}>
+          <thead>
+            <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+              <th style={{ 
+                padding: isMobile ? "8px 4px" : "10px 6px", 
+                textAlign: "center", 
+                fontSize: isMobile ? 11 : 12, 
+                fontWeight: 600, 
+                color: "#6b7280", 
+                width: isMobile ? "auto" : "35px",
+                minWidth: isMobile ? "30px" : undefined,
+              }}>
+                번호
+              </th>
+              <th style={{ 
+                padding: isMobile ? "8px 6px" : "10px 6px", 
+                textAlign: "center", 
+                fontSize: isMobile ? 11 : 12, 
+                fontWeight: 600, 
+                color: "#6b7280", 
+                width: isMobile ? "auto" : "100px",
+                minWidth: isMobile ? "80px" : undefined,
+              }}>
+                이름
+              </th>
+              <th style={{ 
+                padding: isMobile ? "8px 4px" : "10px 6px", 
+                textAlign: "center", 
+                fontSize: isMobile ? 11 : 12, 
+                fontWeight: 600, 
+                color: "#6b7280", 
+                width: isMobile ? "auto" : "45px",
+                minWidth: isMobile ? "50px" : undefined,
+              }}>
+                출석
+              </th>
+              <th style={{ 
+                padding: isMobile ? "8px 8px" : "10px 12px", 
+                textAlign: "left", 
+                fontSize: isMobile ? 11 : 12, 
+                fontWeight: 600, 
+                color: "#6b7280",
+                minWidth: isMobile ? "200px" : undefined,
+              }}>
+                현황&기도제목
+              </th>
+            </tr>
+          </thead>
       <tbody>
         {deptMembers.map((member, idx) => {
           const isAttended = records[member.id]?.[sundayDate] === true;
@@ -249,13 +295,27 @@ function DepartmentMembersTable({
                 backgroundColor: isAttended ? "#f0fdf4" : "#ffffff",
               }}
             >
-              <td style={{ padding: "5px 6px", fontSize: 13, color: "#6b7280", textAlign: "center", whiteSpace: "nowrap", backgroundColor: "#f3f4f6" }}>
+              <td style={{ 
+                padding: isMobile ? "6px 4px" : "5px 6px", 
+                fontSize: isMobile ? 12 : 13, 
+                color: "#6b7280", 
+                textAlign: "center", 
+                whiteSpace: "nowrap", 
+                backgroundColor: "#f3f4f6" 
+              }}>
                 {idx + 1}
               </td>
-              <td style={{ padding: "5px 6px", fontSize: 13, color: "#1f2937", textAlign: "center", whiteSpace: "nowrap", backgroundColor: "#f3f4f6" }}>
+              <td style={{ 
+                padding: isMobile ? "6px 6px" : "5px 6px", 
+                fontSize: isMobile ? 12 : 13, 
+                color: "#1f2937", 
+                textAlign: "center", 
+                whiteSpace: "nowrap", 
+                backgroundColor: "#f3f4f6" 
+              }}>
                 {member.name}
                 {member.gender && age && (
-                  <span style={{ fontSize: 12 }}>
+                  <span style={{ fontSize: isMobile ? 11 : 12 }}>
                     {' '}(
                     <span style={{ color: member.gender === "여" ? "#ef4444" : "#3b82f6" }}>
                       {member.gender}
@@ -264,16 +324,23 @@ function DepartmentMembersTable({
                   </span>
                 )}
               </td>
-              <td style={{ padding: "5px 6px", fontSize: 13, color: "#9ca3af", textAlign: "center", whiteSpace: "nowrap", backgroundColor: "#f3f4f6" }}>
+              <td style={{ 
+                padding: isMobile ? "6px 4px" : "5px 6px", 
+                fontSize: isMobile ? 12 : 13, 
+                color: "#9ca3af", 
+                textAlign: "center", 
+                whiteSpace: "nowrap", 
+                backgroundColor: "#f3f4f6" 
+              }}>
                 {isAttended ? (
                   <span
                     style={{
                       display: "inline-block",
                       backgroundColor: "#10b981",
                       color: "#ffffff",
-                      padding: "2px 8px",
+                      padding: isMobile ? "2px 6px" : "2px 8px",
                       borderRadius: "12px",
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       fontWeight: 500,
                     }}
                   >
@@ -283,7 +350,13 @@ function DepartmentMembersTable({
                   "-"
                 )}
               </td>
-              <td style={{ padding: "5px 12px", fontSize: 13, textAlign: "left", backgroundColor: "#f9fafb" }}>
+              <td style={{ 
+                padding: isMobile ? "6px 8px" : "5px 12px", 
+                fontSize: isMobile ? 12 : 13, 
+                textAlign: "left", 
+                backgroundColor: "#f9fafb",
+                minWidth: isMobile ? "200px" : undefined,
+              }}>
                 {editingMemberIds.has(member.id) ? (
                   <textarea
                     value={editTexts[member.id] || ""}
@@ -295,11 +368,11 @@ function DepartmentMembersTable({
                     }}
                     style={{
                       width: "100%",
-                      minHeight: 60,
-                      padding: "8px",
+                      minHeight: isMobile ? 50 : 60,
+                      padding: isMobile ? "6px" : "8px",
                       borderRadius: 4,
                       border: "1px solid #e5e7eb",
-                      fontSize: 13,
+                      fontSize: isMobile ? 12 : 13,
                       fontFamily: "inherit",
                       resize: "vertical",
                       outline: "none",
@@ -333,12 +406,12 @@ function DepartmentMembersTable({
                   <button
                     onClick={() => handleStartEdit(member.id, "")}
                     style={{
-                      padding: "4px 12px",
+                      padding: isMobile ? "4px 10px" : "4px 12px",
                       borderRadius: 4,
                       border: "1px solid #e5e7eb",
                       background: "#ffffff",
                       color: "#6b7280",
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       cursor: "pointer",
                       marginLeft: "auto",
                       display: "block",
@@ -352,7 +425,8 @@ function DepartmentMembersTable({
           );
         })}
       </tbody>
-    </table>
+        </table>
+      </div>
     </div>
   );
 }
@@ -398,6 +472,7 @@ export default function AttendancePage() {
   const [showStatusPrayerModal, setShowStatusPrayerModal] = useState(false);
   const [editingStatusPrayer, setEditingStatusPrayer] = useState<{ memberId: string; date: string; currentText: string } | null>(null);
   const [statusPrayerInput, setStatusPrayerInput] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
 
   // 날짜 계산 헬퍼 함수들
   const getSundayForDate = (date: Date): string => {
@@ -783,6 +858,16 @@ export default function AttendancePage() {
       </div>
     );
   };
+
+  // 모바일 감지
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // 이번 주일 날짜들 계산 (일요일 기준)
   useEffect(() => {
@@ -2005,9 +2090,33 @@ export default function AttendancePage() {
   const managerSundayDate = managerSelectedSunday || sundayDate;
 
   return (
-    <div>
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+    <div style={{ 
+      padding: isMobile ? "12px" : "20px", 
+      maxWidth: "100%", 
+      width: "100%",
+      overflowX: "hidden",
+      boxSizing: "border-box",
+    }}>
+      <div style={{ 
+        marginBottom: isMobile ? 12 : 16,
+        width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
+      }}>
+        <h1 style={{ 
+          fontSize: isMobile ? 18 : 20, 
+          fontWeight: 700, 
+          color: "#1f2937", 
+          margin: 0, 
+          display: "flex", 
+          alignItems: "center", 
+          gap: isMobile ? 6 : 8,
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          width: "100%",
+          minWidth: 0,
+          wordWrap: "break-word",
+          overflowWrap: "break-word",
+        }}>
           {userDepartment ? (
             <>
               {userDepartment} 출석체크
@@ -2019,7 +2128,7 @@ export default function AttendancePage() {
                 const deptStats = stats.byDepartment[userDepartment];
                 if (deptStats?.manager) {
                   return (
-                    <span style={{ fontSize: 14, fontWeight: 400, color: "#6b7280" }}>
+                    <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 400, color: "#6b7280" }}>
                       (담당: {deptStats.manager.name}{deptStats.manager.position ? ` ${deptStats.manager.position}` : ""})
                     </span>
                   );
@@ -2034,29 +2143,53 @@ export default function AttendancePage() {
       </div>
       {/* 관리자용 날짜 변경 */}
       {isAdmin && (
-        <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
-          <button
-            onClick={() => {
-              const displayDate = adminSelectedSunday || sundayDate;
-              if (displayDate) {
-                setAdminSelectedSunday(getPreviousSunday(displayDate));
-              }
-            }}
-            style={{
-              padding: "4px 8px",
-              borderRadius: 6,
-              border: "1px solid #e5e7eb",
-              background: "#ffffff",
-              color: "#374151",
-              fontSize: 14,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ◀
-          </button>
+        <div
+          style={{
+            backgroundColor: "#ffffff",
+            borderRadius: 8,
+            padding: isMobile ? "6px" : "10px",
+            border: "1px solid #e5e7eb",
+            marginBottom: isMobile ? 12 : 16,
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: isMobile ? 4 : 12, 
+            position: "relative",
+            flexWrap: "nowrap",
+            width: isMobile ? "100%" : "auto",
+            justifyContent: isMobile ? "flex-start" : "flex-start",
+          }}>
+              <button
+                onClick={() => {
+                  const displayDate = adminSelectedSunday || sundayDate;
+                  if (displayDate) {
+                    setAdminSelectedSunday(getPreviousSunday(displayDate));
+                  }
+                }}
+                style={{
+                  padding: isMobile ? "4px 6px" : "4px 8px",
+                  borderRadius: 4,
+                  border: "1px solid #e5e7eb",
+                  background: "#ffffff",
+                  color: "#374151",
+                  fontSize: isMobile ? 10 : 14,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: isMobile ? "24px" : undefined,
+                  minHeight: isMobile ? "24px" : undefined,
+                  flexShrink: 0,
+                  lineHeight: 1,
+                }}
+              >
+                ◀
+              </button>
           {(() => {
             const displayDate = adminSelectedSunday || sundayDate;
             if (!displayDate) return null;
@@ -2067,14 +2200,21 @@ export default function AttendancePage() {
               <h3
                 ref={adminCalendarAnchorRef}
                 style={{
-                  fontSize: 14,
+                  fontSize: isMobile ? 11 : 14,
                   fontWeight: 600,
                   color: "#1f2937",
                   margin: 0,
                   cursor: "pointer",
-                  padding: "4px 8px",
+                  padding: isMobile ? "4px 8px" : "4px 12px",
                   borderRadius: 4,
                   transition: "background-color 0.2s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  whiteSpace: "nowrap",
+                  flex: isMobile ? "none" : 1,
+                  justifyContent: isMobile ? "flex-start" : "center",
+                  minWidth: 0,
+                  border: "none",
                 }}
                 onClick={(e) => {
                   adminCalendarAnchorRef.current = e.currentTarget;
@@ -2087,7 +2227,7 @@ export default function AttendancePage() {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
               >
-                {isCurrentWeek(displayDate) ? "이번 주일" : "주일"}({month}/{day})
+                {isCurrentWeek(displayDate) ? "이번주일" : "주일"}({month}/{day})
               </h3>
             );
           })()}
@@ -2107,8 +2247,8 @@ export default function AttendancePage() {
               return displayDate ? new Date(getNextSunday(displayDate)) > new Date() : false;
             })()}
             style={{
-              padding: "4px 8px",
-              borderRadius: 6,
+              padding: isMobile ? "4px 6px" : "4px 8px",
+              borderRadius: 4,
               border: "1px solid #e5e7eb",
               background: (() => {
                 const displayDate = adminSelectedSunday || sundayDate;
@@ -2118,7 +2258,7 @@ export default function AttendancePage() {
                 const displayDate = adminSelectedSunday || sundayDate;
                 return displayDate && new Date(getNextSunday(displayDate)) > new Date() ? "#9ca3af" : "#374151";
               })(),
-              fontSize: 14,
+              fontSize: isMobile ? 10 : 14,
               cursor: (() => {
                 const displayDate = adminSelectedSunday || sundayDate;
                 return displayDate && new Date(getNextSunday(displayDate)) > new Date() ? "not-allowed" : "pointer";
@@ -2126,6 +2266,10 @@ export default function AttendancePage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              minWidth: isMobile ? "24px" : undefined,
+              minHeight: isMobile ? "24px" : undefined,
+              flexShrink: 0,
+              lineHeight: 1,
             }}
           >
             ▶
@@ -2137,14 +2281,17 @@ export default function AttendancePage() {
                 setAdminSelectedSunday(getSundayForDate(today));
               }}
               style={{
-                padding: "4px 12px",
+                padding: isMobile ? "2px 6px" : "4px 12px",
                 borderRadius: 6,
                 border: "1px solid #3b82f6",
                 background: "#ffffff",
                 color: "#3b82f6",
-                fontSize: 12,
+                fontSize: isMobile ? 10 : 12,
                 cursor: "pointer",
-                marginLeft: 8,
+                marginLeft: isMobile ? 4 : 8,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+                lineHeight: 1,
               }}
             >
               이번 주
@@ -2165,38 +2312,50 @@ export default function AttendancePage() {
               anchorElement={adminCalendarAnchorRef.current}
             />
           )}
+          </div>
         </div>
       )}
 
       {/* 주요 통계 카드 (관리자만) */}
       {isAdmin && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(200px, 1fr))", 
+            gap: isMobile ? 8 : 12, 
+            marginBottom: isMobile ? 12 : 16,
+            width: "100%",
+            boxSizing: "border-box",
+          }}>
             <div
               style={{
                 backgroundColor: "#ffffff",
                 borderRadius: 8,
-                padding: "16px",
+                padding: isMobile ? "12px" : "16px",
                 border: "1px solid #e5e7eb",
+                width: "100%",
+                boxSizing: "border-box",
               }}
             >
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
+              <div style={{ fontSize: isMobile ? 11 : 12, color: "#6b7280", marginBottom: 4 }}>전체 대상자</div>
+              <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: "#1f2937" }}>{stats.totalMembers}명</div>
             </div>
 
             <div
               style={{
                 backgroundColor: "#ffffff",
                 borderRadius: 8,
-                padding: "16px",
+                padding: isMobile ? "12px" : "16px",
                 border: "1px solid #e5e7eb",
+                width: "100%",
+                boxSizing: "border-box",
               }}
             >
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#10b981" }}>
+              <div style={{ fontSize: isMobile ? 11 : 12, color: "#6b7280", marginBottom: 4 }}>이번 주일 출석률</div>
+              <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 700, color: "#10b981" }}>
                 {stats.weekAvgRate}%
               </div>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 4 }}>
+              <div style={{ fontSize: isMobile ? 10 : 11, color: "#9ca3af", marginTop: 4 }}>
                 주일예배 평균
               </div>
             </div>
@@ -2212,10 +2371,16 @@ export default function AttendancePage() {
               marginBottom: 16,
             }}
           >
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: "#1f2937", margin: 0, marginBottom: 16 }}>
+            <h2 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600, color: "#1f2937", margin: 0, marginBottom: isMobile ? 12 : 16 }}>
               부서별 이번 주 출석 현황
             </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={{ 
+              display: "flex", 
+              flexDirection: "column", 
+              gap: 0,
+              width: "100%",
+              maxWidth: "100%",
+            }}>
               {departments.map((dept, index) => {
                 const deptStats = stats.byDepartment[dept];
                 const rate = deptStats && deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
@@ -2245,11 +2410,16 @@ export default function AttendancePage() {
                   <div key={dept}>
                     <div
                       style={{
-                        padding: "12px 16px",
+                        padding: isMobile ? "8px 10px" : "12px 16px",
                         borderBottom: index < departments.length - 1 ? "1px solid #e5e7eb" : "none",
                         display: "flex",
                         alignItems: "center",
-                        gap: 12,
+                        gap: isMobile ? 6 : 12,
+                        flexWrap: "nowrap",
+                        overflow: "hidden",
+                        width: "100%",
+                        minWidth: 0,
+                        boxSizing: "border-box",
                       }}
                     >
                       <div
@@ -2287,30 +2457,55 @@ export default function AttendancePage() {
                     )}
                     {deptStats ? (
                       <>
-                        <div style={{ fontSize: 14, color: "#1f2937", marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ 
+                          fontSize: isMobile ? 12 : 13, 
+                          color: "#1f2937", 
+                          marginLeft: "auto", 
+                          display: "flex", 
+                          alignItems: "center", 
+                          gap: isMobile ? 4 : 6,
+                          flexWrap: "nowrap",
+                          whiteSpace: "nowrap",
+                          minWidth: 0,
+                          flexShrink: 1,
+                        }}>
                           {statusPrayerCount > 0 && (
                             <StatusPrayerBadge count={statusPrayerCount} />
                           )}
-                          <span>{deptStats.attended}/{deptStats.total}명</span>
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444", minWidth: 50, textAlign: "right" }}>
-                          {rate}%
+                          <span style={{ whiteSpace: "nowrap" }}>{deptStats.attended}/{deptStats.total}명</span>
+                          <span style={{ 
+                            fontSize: isMobile ? 12 : 13, 
+                            fontWeight: 600, 
+                            color: rate >= 80 ? "#10b981" : rate >= 60 ? "#f59e0b" : "#ef4444",
+                            whiteSpace: "nowrap",
+                          }}>
+                            {rate}%
+                          </span>
                         </div>
                         {(() => {
                           const isReported = reports[dept]?.[adminSundayDate] === true;
                           return (
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8 }}>
+                            <div style={{ 
+                              display: "flex", 
+                              alignItems: "center", 
+                              gap: isMobile ? 4 : 6, 
+                              marginLeft: isMobile ? 4 : 8,
+                              flexWrap: "nowrap",
+                              whiteSpace: "nowrap",
+                            }}>
                               <button
                                 onClick={() => handleUnreport(dept, adminSundayDate)}
                                 style={{
-                                  padding: "4px 12px",
+                                  padding: isMobile ? "3px 8px" : "4px 10px",
                                   borderRadius: 6,
                                   border: "none",
                                   background: isReported ? "#3b82f6" : "#f3f4f6",
                                   color: isReported ? "#ffffff" : "#6b7280",
-                                  fontSize: 12,
+                                  fontSize: isMobile ? 11 : 12,
                                   fontWeight: 500,
                                   cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                  flexShrink: 0,
                                 }}
                               >
                                 수정
@@ -2319,15 +2514,17 @@ export default function AttendancePage() {
                                 onClick={() => handleReport(dept, adminSundayDate)}
                                 disabled={true}
                                 style={{
-                                  padding: "4px 12px",
+                                  padding: isMobile ? "3px 8px" : "4px 10px",
                                   borderRadius: 6,
                                   border: "1px solid #e5e7eb",
                                   background: isReported ? "#10b981" : "#f3f4f6",
                                   color: isReported ? "#ffffff" : "#6b7280",
-                                  fontSize: 12,
+                                  fontSize: isMobile ? 11 : 12,
                                   fontWeight: 500,
                                   cursor: "not-allowed",
                                   opacity: 0.6,
+                                  whiteSpace: "nowrap",
+                                  flexShrink: 0,
                                 }}
                               >
                                 보고완료
@@ -2377,13 +2574,31 @@ export default function AttendancePage() {
           style={{
             backgroundColor: "#ffffff",
             borderRadius: 8,
-            padding: "20px",
+            padding: isMobile ? "12px" : "20px",
             border: "1px solid #e5e7eb",
-            marginBottom: 16,
+            marginBottom: isMobile ? 12 : 16,
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
           }}
         >
-          <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
+          <div style={{ 
+            marginBottom: isMobile ? 12 : 16, 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center",
+            width: "100%",
+            minWidth: 0,
+          }}>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: isMobile ? 4 : 12, 
+              position: "relative",
+              flexWrap: "nowrap",
+              width: isMobile ? "100%" : "auto",
+              justifyContent: isMobile ? "flex-start" : "flex-start",
+            }}>
               <button
                 onClick={() => {
                   if (managerSundayDate) {
@@ -2391,16 +2606,20 @@ export default function AttendancePage() {
                   }
                 }}
                 style={{
-                  padding: "4px 8px",
-                  borderRadius: 6,
+                  padding: isMobile ? "4px 6px" : "4px 8px",
+                  borderRadius: 4,
                   border: "1px solid #e5e7eb",
                   background: "#ffffff",
                   color: "#374151",
-                  fontSize: 14,
+                  fontSize: isMobile ? 10 : 16,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  minWidth: isMobile ? "24px" : undefined,
+                  minHeight: isMobile ? "24px" : undefined,
+                  flexShrink: 0,
+                  lineHeight: 1,
                 }}
               >
                 ◀
@@ -2413,14 +2632,21 @@ export default function AttendancePage() {
                   <h2
                     ref={managerCalendarAnchorRef}
                     style={{
-                      fontSize: 16,
+                      fontSize: isMobile ? 11 : 16,
                       fontWeight: 600,
                       color: "#1f2937",
                       margin: 0,
                       cursor: "pointer",
-                      padding: "4px 8px",
+                      padding: isMobile ? "4px 8px" : "4px 12px",
                       borderRadius: 4,
                       transition: "background-color 0.2s ease",
+                      whiteSpace: "nowrap",
+                      flex: isMobile ? "none" : 1,
+                      justifyContent: isMobile ? "flex-start" : "center",
+                      display: "flex",
+                      alignItems: "center",
+                      minWidth: 0,
+                      border: "none",
                     }}
                     onClick={(e) => {
                       managerCalendarAnchorRef.current = e.currentTarget;
@@ -2433,7 +2659,7 @@ export default function AttendancePage() {
                       e.currentTarget.style.backgroundColor = "transparent";
                     }}
                   >
-                    {isCurrentWeek(managerSundayDate) ? "이번 주일" : "주일"}({month}/{day})
+                    {isCurrentWeek(managerSundayDate) ? "이번주일" : "주일"}({month}/{day})
                   </h2>
                 );
               })()}
@@ -2449,16 +2675,20 @@ export default function AttendancePage() {
                 }}
                 disabled={managerSundayDate ? new Date(getNextSunday(managerSundayDate)) > new Date() : false}
                 style={{
-                  padding: "4px 8px",
-                  borderRadius: 6,
+                  padding: isMobile ? "4px 6px" : "4px 8px",
+                  borderRadius: 4,
                   border: "1px solid #e5e7eb",
                   background: managerSundayDate && new Date(getNextSunday(managerSundayDate)) > new Date() ? "#f3f4f6" : "#ffffff",
                   color: managerSundayDate && new Date(getNextSunday(managerSundayDate)) > new Date() ? "#9ca3af" : "#374151",
-                  fontSize: 14,
+                  fontSize: isMobile ? 10 : 16,
                   cursor: managerSundayDate && new Date(getNextSunday(managerSundayDate)) > new Date() ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  minWidth: isMobile ? "24px" : undefined,
+                  minHeight: isMobile ? "24px" : undefined,
+                  flexShrink: 0,
+                  lineHeight: 1,
                 }}
               >
                 ▶
@@ -2470,54 +2700,22 @@ export default function AttendancePage() {
                     setManagerSelectedSunday(getSundayForDate(today));
                   }}
                   style={{
-                    padding: "4px 12px",
+                    padding: isMobile ? "2px 6px" : "4px 12px",
                     borderRadius: 6,
+                    fontSize: isMobile ? 10 : 12,
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
                     border: "1px solid #3b82f6",
                     background: "#ffffff",
                     color: "#3b82f6",
-                    fontSize: 12,
                     cursor: "pointer",
-                    marginLeft: 8,
+                    marginLeft: isMobile ? 4 : 8,
+                    lineHeight: 1,
                   }}
                 >
                   이번 주
                 </button>
               )}
-              {(() => {
-                // 부서명 매핑
-                const deptMapping: Record<string, string> = {
-                  "아동부": "유치부",
-                  "중고등부": "청소년부",
-                };
-                const deptStats = stats.byDepartment[userDepartment || ""];
-                if (deptStats) {
-                  const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
-                  const isReported = reports[userDepartment || ""]?.[managerSundayDate] === true;
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 12 }}>
-                      <span style={{ fontSize: 14, color: "#1f2937" }}>{deptStats.attended}/{deptStats.total}명</span>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: "#10b981" }}>{rate}%</span>
-                      <button
-                        onClick={() => handleReport(userDepartment || "", managerSundayDate)}
-                        disabled={isReported}
-                        style={{
-                          padding: "4px 12px",
-                          borderRadius: 6,
-                          border: "1px solid #e5e7eb",
-                          background: isReported ? "#10b981" : "#f3f4f6",
-                          color: isReported ? "#ffffff" : "#6b7280",
-                          fontSize: 12,
-                          fontWeight: 500,
-                          cursor: isReported ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        {isReported ? "보고완료" : "보고하기"}
-                      </button>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
               {showManagerCalendar && (
                 <CustomCalendar
                   selectedSunday={managerSelectedSunday || sundayDate}
@@ -2534,6 +2732,55 @@ export default function AttendancePage() {
                 />
               )}
             </div>
+            {(() => {
+              // 부서명 매핑
+              const deptMapping: Record<string, string> = {
+                "아동부": "유치부",
+                "중고등부": "청소년부",
+              };
+              const deptStats = stats.byDepartment[userDepartment || ""];
+              if (deptStats) {
+                const rate = deptStats.total > 0 ? Math.round((deptStats.attended / deptStats.total) * 100) : 0;
+                const isReported = reports[userDepartment || ""]?.[managerSundayDate] === true;
+                return (
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: isMobile ? 4 : 6, 
+                    flexWrap: "nowrap",
+                    whiteSpace: "nowrap",
+                    minWidth: 0,
+                    flexShrink: 0,
+                  }}>
+                    <span style={{ fontSize: isMobile ? 12 : 13, color: "#1f2937", whiteSpace: "nowrap" }}>
+                      {deptStats.attended}/{deptStats.total}명
+                    </span>
+                    <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, color: "#10b981", whiteSpace: "nowrap" }}>
+                      {rate}%
+                    </span>
+                    <button
+                      onClick={() => handleReport(userDepartment || "", managerSundayDate)}
+                      disabled={isReported}
+                      style={{
+                        padding: isMobile ? "3px 8px" : "4px 10px",
+                        borderRadius: 6,
+                        border: "1px solid #e5e7eb",
+                        background: isReported ? "#10b981" : "#f3f4f6",
+                        color: isReported ? "#ffffff" : "#6b7280",
+                        fontSize: isMobile ? 11 : 12,
+                        fontWeight: 500,
+                        cursor: isReported ? "not-allowed" : "pointer",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {isReported ? "보고완료" : "보고하기"}
+                    </button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
           {(() => {
             // 부서명 매핑
@@ -2559,7 +2806,14 @@ export default function AttendancePage() {
             }
 
             return (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ 
+                display: "flex", 
+                flexWrap: "wrap", 
+                gap: isMobile ? 5 : 8,
+                width: "100%",
+                maxWidth: "100%",
+                boxSizing: "border-box",
+              }}>
                 {deptMembers.map((member) => {
                   const attended = records[member.id]?.[managerSundayDate] === true;
                   const isReported = reports[userDepartment || ""]?.[managerSundayDate] === true;
@@ -2569,16 +2823,20 @@ export default function AttendancePage() {
                       onClick={() => toggleAttendance(member.id, managerSundayDate)}
                       disabled={isReported}
                       style={{
-                        padding: "2px 2px",
-                        borderRadius: 8,
+                        padding: isMobile ? "4px 6px" : "6px 10px",
+                        borderRadius: 6,
                         border: `1px solid ${attended ? "#3b82f6" : "#e5e7eb"}`,
                         background: attended ? "#3b82f6" : isReported ? "#f3f4f6" : "#ffffff",
                         color: attended ? "#ffffff" : isReported ? "#9ca3af" : "#1f2937",
-                        fontSize: 15,
+                        fontSize: isMobile ? 11 : 13,
                         fontWeight: 500,
                         cursor: isReported ? "not-allowed" : "pointer",
                         transition: "all 0.2s ease",
                         opacity: isReported ? 0.6 : 1,
+                        whiteSpace: "nowrap",
+                        flex: isMobile ? "0 0 calc(14.286% - 4px)" : "0 0 auto",
+                        textAlign: "center",
+                        boxSizing: "border-box",
                       }}
                       onMouseEnter={(e) => {
                         if (!attended && !isReported) {
@@ -2636,6 +2894,10 @@ export default function AttendancePage() {
                     borderRadius: 8,
                     border: "1px solid #e5e7eb",
                     overflow: "hidden",
+                    marginBottom: isMobile ? 12 : 16,
+                    width: "100%",
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
                   }}
                 >
                   <DepartmentMembersTable
@@ -2651,6 +2913,7 @@ export default function AttendancePage() {
                       setStatusPrayerInput(currentText);
                       setShowStatusPrayerModal(true);
                     }}
+                    isMobile={isMobile}
                     onSaveStatusPrayer={handleSaveStatusPrayer}
                     isReported={(() => {
                       const managerSundayDate = (!isAdmin && userDepartment && managerSelectedSunday) ? managerSelectedSunday : currentWeekDates[0];
@@ -2667,19 +2930,20 @@ export default function AttendancePage() {
       {/* 명단관리 팝업 */}
       {showMembersModal && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            zIndex: 1000,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "20px",
-          }}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              zIndex: 1000,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: isMobile ? "flex-start" : "center",
+              padding: isMobile ? "12px" : "20px",
+              overflowY: "auto",
+            }}
           onClick={() => {
             setShowMembersModal(false);
             setShowAddForm(false);
@@ -2693,17 +2957,17 @@ export default function AttendancePage() {
             style={{
               backgroundColor: "#ffffff",
               borderRadius: 12,
-              padding: "24px",
+              padding: isMobile ? "16px" : "24px",
               width: "100%",
               maxWidth: 800,
-              maxHeight: "90vh",
+              maxHeight: isMobile ? "calc(100vh - 24px)" : "90vh",
               overflow: "auto",
               boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1f2937", margin: 0 }}>명단관리</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? 16 : 20 }}>
+              <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: "#1f2937", margin: 0 }}>명단관리</h2>
               <button
                 onClick={() => {
                   setShowMembersModal(false);
@@ -3227,18 +3491,20 @@ export default function AttendancePage() {
       {/* 현황&기도제목 입력 모달 */}
       {showStatusPrayerModal && editingStatusPrayer && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: isMobile ? "flex-start" : "center",
+              zIndex: 1000,
+              padding: isMobile ? "12px" : 0,
+              overflowY: "auto",
+            }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowStatusPrayerModal(false);
@@ -3251,15 +3517,17 @@ export default function AttendancePage() {
             style={{
               backgroundColor: "#ffffff",
               borderRadius: 12,
-              padding: "28px",
-              width: "80%",
+              padding: isMobile ? "20px" : "28px",
+              width: isMobile ? "90%" : "80%",
               maxWidth: 400,
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+              maxHeight: isMobile ? "90vh" : "auto",
+              overflowY: isMobile ? "auto" : "visible",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ fontSize: 17, fontWeight: 600, color: "#1f2937", margin: 0 }}>
+            <div style={{ marginBottom: isMobile ? 16 : 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ fontSize: isMobile ? 15 : 17, fontWeight: 600, color: "#1f2937", margin: 0 }}>
                 현황&기도제목 입력
               </h2>
               <button
@@ -3294,17 +3562,18 @@ export default function AttendancePage() {
               </button>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: isMobile ? 16 : 20 }}>
               <textarea
                 value={statusPrayerInput}
                 onChange={(e) => setStatusPrayerInput(e.target.value)}
                 placeholder="현황 및 기도제목을 입력하세요"
                 style={{
                   width: "100%",
-                  minHeight: 75,
-                  padding: "14px",
+                  minHeight: isMobile ? 100 : 120,
+                  padding: isMobile ? "10px" : "12px",
                   borderRadius: 8,
                   border: "1px solid #e5e7eb",
+                  fontSize: isMobile ? 13 : 14,
                   fontSize: 14,
                   fontFamily: "inherit",
                   resize: "vertical",

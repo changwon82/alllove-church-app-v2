@@ -191,11 +191,11 @@ export default function AttendanceMembersPage() {
     // 필터링할 부서 결정 (부서 담당자는 userDepartment, 관리자는 selectedDepartment 또는 null)
     const filterDepartment = isAdminUser ? department : (userDepartment || department);
 
-    // 부서명 매핑
-    const deptMapping: Record<string, string> = {
-      "아동부": "유치부",
-      "중고등부": "청소년부",
-    };
+      // 부서명 매핑
+      const deptMapping: Record<string, string> = {
+        "아동부": "유치부",
+        "중고등부": "청소년부",
+      };
 
     // 활성 멤버 필터링
     let filteredMembers = activeMembers;
@@ -728,41 +728,41 @@ export default function AttendanceMembersPage() {
         };
         
         return (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <button
+            onClick={() => setSelectedDepartment(null)}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid #e5e7eb",
+              background: selectedDepartment === null ? "#3b82f6" : "#ffffff",
+              color: selectedDepartment === null ? "#ffffff" : "#374151",
+              fontWeight: 500,
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+              전체 ({getDepartmentMemberCount(null)})
+          </button>
+          {departments.map((dept) => (
             <button
-              onClick={() => setSelectedDepartment(null)}
+              key={dept}
+              onClick={() => setSelectedDepartment(dept)}
               style={{
                 padding: "6px 12px",
                 borderRadius: 6,
                 border: "1px solid #e5e7eb",
-                background: selectedDepartment === null ? "#3b82f6" : "#ffffff",
-                color: selectedDepartment === null ? "#ffffff" : "#374151",
+                background: selectedDepartment === dept ? "#3b82f6" : "#ffffff",
+                color: selectedDepartment === dept ? "#ffffff" : "#374151",
                 fontWeight: 500,
                 fontSize: 13,
                 cursor: "pointer",
               }}
             >
-              전체 ({getDepartmentMemberCount(null)})
-            </button>
-            {departments.map((dept) => (
-              <button
-                key={dept}
-                onClick={() => setSelectedDepartment(dept)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #e5e7eb",
-                  background: selectedDepartment === dept ? "#3b82f6" : "#ffffff",
-                  color: selectedDepartment === dept ? "#ffffff" : "#374151",
-                  fontWeight: 500,
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
-              >
                 {dept} ({getDepartmentMemberCount(dept)})
-              </button>
-            ))}
-          </div>
+            </button>
+          ))}
+        </div>
         );
       })()}
 
@@ -985,12 +985,12 @@ export default function AttendanceMembersPage() {
                     <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center" }}>
                       <button
                         onClick={handleAddPendingRow}
-                        style={{
+                  style={{
                           padding: "4px 8px",
                           borderRadius: 4,
                           border: "1px solid #d1d5db",
                           background: "#ffffff",
-                          color: "#374151",
+                    color: "#374151",
                           fontSize: 14,
                           fontWeight: 500,
                           cursor: "pointer",
@@ -999,13 +999,13 @@ export default function AttendanceMembersPage() {
                           justifyContent: "center",
                           width: "28px",
                           height: "28px",
-                        }}
-                      >
+                  }}
+                >
                         +
                       </button>
                       <button
                         onClick={toggleDeleteMode}
-                        style={{
+                  style={{
                           padding: "4px 8px",
                           borderRadius: 4,
                           border: "1px solid #e5e7eb",
@@ -1034,7 +1034,7 @@ export default function AttendanceMembersPage() {
                           borderRadius: 4,
                           border: "1px solid #e5e7eb",
                           background: "#ffffff",
-                          color: "#374151",
+                    color: "#374151",
                           fontSize: 12,
                           fontWeight: 500,
                           cursor: "pointer",
@@ -1054,8 +1054,8 @@ export default function AttendanceMembersPage() {
                           fontSize: 12,
                           fontWeight: 500,
                           cursor: selectedDeleteIds.size === 0 ? "not-allowed" : "pointer",
-                        }}
-                      >
+                  }}
+                >
                         삭제 ({selectedDeleteIds.size})
                       </button>
                     </div>
@@ -1317,20 +1317,20 @@ export default function AttendanceMembersPage() {
                           {member.gender || age !== null ? ` (${member.gender || "?"}/${age !== null ? age : "?"})` : ""}
                         </td>
                         <td style={{ padding: "6px", textAlign: "left", color: "#9ca3af", whiteSpace: "nowrap" }}>
-                          {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
-                        </td>
+                        {member.birth_date ? new Date(member.birth_date).toLocaleDateString("ko-KR") : "-"}
+                      </td>
                         <td style={{ padding: "6px", textAlign: "center", whiteSpace: "nowrap" }}>
                           <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
-                            <button
+                          <button
                               onClick={() => handleRestoreMember(member.id, member.name)}
-                              style={{
+                            style={{
                                 padding: "4px 12px",
                                 fontSize: 11,
                                 fontWeight: 500,
                                 color: "#059669",
                                 backgroundColor: "transparent",
                                 border: "1px solid #059669",
-                                borderRadius: 4,
+                              borderRadius: 4,
                                 cursor: "pointer",
                                 transition: "all 0.2s ease",
                               }}
@@ -1341,20 +1341,20 @@ export default function AttendanceMembersPage() {
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.backgroundColor = "transparent";
                                 e.currentTarget.style.color = "#059669";
-                              }}
-                            >
+                            }}
+                          >
                               복원
-                            </button>
-                            <button
+                          </button>
+                          <button
                               onClick={() => handlePermanentDelete(member.id, member.name)}
-                              style={{
+                            style={{
                                 padding: "4px 12px",
                                 fontSize: 11,
                                 fontWeight: 500,
                                 color: "#dc2626",
                                 backgroundColor: "transparent",
                                 border: "1px solid #dc2626",
-                                borderRadius: 4,
+                              borderRadius: 4,
                                 cursor: "pointer",
                                 transition: "all 0.2s ease",
                               }}
@@ -1365,14 +1365,14 @@ export default function AttendanceMembersPage() {
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.backgroundColor = "transparent";
                                 e.currentTarget.style.color = "#dc2626";
-                              }}
-                            >
+                            }}
+                          >
                               완전 삭제
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
                   })}
                 </>
               )}
