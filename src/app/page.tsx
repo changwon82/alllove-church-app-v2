@@ -92,17 +92,23 @@ export default function Home() {
         >
           <div
             style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "#3b82f6",
+              width: 80,
+              height: 80,
               margin: "0 auto 24px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <span style={{ fontSize: 36, color: "#ffffff" }}>⛪</span>
+            <img
+              src="/alllove-logo.png"
+              alt="AllLove Church Community Logo"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+              }}
+            />
           </div>
 
           <h1
@@ -110,11 +116,21 @@ export default function Home() {
               fontSize: 24,
               fontWeight: 700,
               color: "#1f2937",
+              marginBottom: 4,
+            }}
+          >
+            다애공동체
+          </h1>
+          <p
+            style={{
+              fontSize: 14,
+              color: "#6b7280",
+              margin: 0,
               marginBottom: 8,
             }}
           >
-            교회 관리 시스템
-          </h1>
+            AllLove Church Community
+          </p>
           <p
             style={{
               fontSize: 14,

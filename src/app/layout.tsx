@@ -14,8 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "교회 앱",
-  description: "교회 관리 시스템",
+  title: "AllLove Church Community",
+  description: "다애공동체 AllLove Church Community",
+  icons: {
+    icon: "/alllove-logo.png",
+    shortcut: "/alllove-logo.png",
+    apple: "/alllove-logo.png",
+  },
 };
 
 export default function RootLayout({

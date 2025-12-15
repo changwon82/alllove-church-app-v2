@@ -77,17 +77,23 @@ export default function LoginPage() {
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div
             style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "#3b82f6",
+              width: 80,
+              height: 80,
               margin: "0 auto 24px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <span style={{ fontSize: 36, color: "#ffffff" }}>🔐</span>
+            <img
+              src="/alllove-logo.png"
+              alt="AllLove Church Community Logo"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+              }}
+            />
           </div>
           <h1
             style={{
@@ -205,6 +211,19 @@ export default function LoginPage() {
         </form>
 
         <div style={{ marginTop: 24, textAlign: "center" }}>
+          <div style={{ marginBottom: 12 }}>
+            <Link
+              href="/forgot-password"
+              style={{
+                fontSize: 13,
+                color: "#3b82f6",
+                fontWeight: 500,
+                textDecoration: "none",
+              }}
+            >
+              아이디 / 비밀번호 찾기
+            </Link>
+          </div>
           <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
             계정이 없으신가요?{" "}
             <Link
