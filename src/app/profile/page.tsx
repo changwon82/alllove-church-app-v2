@@ -4,7 +4,14 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Cropper from "react-easy-crop";
-import type { Area } from "react-easy-crop/types";
+
+// react-easy-crop의 Area 타입 정의
+interface Area {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 type Profile = {
   id: string;
