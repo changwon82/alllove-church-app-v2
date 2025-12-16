@@ -256,6 +256,15 @@ export default function ProfilePage() {
     loadProfile();
     checkBucket();
     checkStorageFiles();
+
+    // 페이지 포커스 시 프로필 다시 불러오기 (다른 페이지에서 변경된 내용 반영)
+    const handleFocus = () => {
+      loadProfile();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [router]);
 
   const checkStorageFiles = async () => {
@@ -1208,7 +1217,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* 담당부서 */}
+          {/* 담당교육부서 */}
           <div
             style={{
               display: "flex",
@@ -1218,7 +1227,7 @@ export default function ProfilePage() {
               borderBottom: "1px solid #e5e7eb",
             }}
           >
-            <span style={{ fontSize: 14, color: "#6b7280" }}>담당부서</span>
+            <span style={{ fontSize: 14, color: "#6b7280" }}>담당교육부서</span>
             {editing ? (
               <select
                 value={department}
@@ -1234,13 +1243,10 @@ export default function ProfilePage() {
                 }}
               >
                 <option value="">선택 안 함</option>
+                <option value="유치부">유치부</option>
                 <option value="유초등부">유초등부</option>
-                <option value="아동부">아동부</option>
-                <option value="중고등부">중고등부</option>
+                <option value="청소년부">청소년부</option>
                 <option value="청년부">청년부</option>
-                <option value="장년부">장년부</option>
-                <option value="찬양팀">찬양팀</option>
-                <option value="안내팀">안내팀</option>
               </select>
             ) : (
               <span style={{ fontSize: 14, fontWeight: 500, color: "#1f2937" }}>
@@ -1275,7 +1281,7 @@ export default function ProfilePage() {
           >
             <span style={{ fontSize: 14, color: "#6b7280" }}>권한</span>
             <span style={{ fontSize: 14, fontWeight: 500, color: "#1f2937" }}>
-              {profile.role === "admin" ? "관리자" : "멤버"}
+              {profile.role === "admin" ? "관리자" : profile.role === "leader" ? "리더" : "멤버"}
             </span>
           </div>
 

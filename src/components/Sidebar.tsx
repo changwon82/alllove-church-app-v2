@@ -15,10 +15,9 @@ const getIcon = (label: string) => {
     홈: "🏠",
     "내 프로필": "👤",
     "성경일독365일": "📖",
-    "회원 조회": "👥",
+    "회원조회": "👥",
     연락처: "📞",
     "생일 관리": "🎂",
-    관리자페이지: "⚙️",
     "통계 대시보드": "📊",
     "출석체크": "✅",
     "현황&기도제목": "🙏",
@@ -39,6 +38,7 @@ export default function Sidebar() {
   const [adminMenuOrder, setAdminMenuOrder] = useState<string[] | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -48,12 +48,12 @@ export default function Sidebar() {
       if (user) {
         const { data } = await supabase
           .from("profiles")
-          .select("role, attendance_permission, full_name")
+          .select("role, department, full_name")
           .eq("id", user.id)
           .maybeSingle();
         const isAdminUser = data?.role === "admin";
         setIsAdmin(isAdminUser);
-        setHasAttendancePermission(isAdminUser || data?.attendance_permission === true);
+        setHasAttendancePermission(isAdminUser || !!data?.department);
         setUserName(data?.full_name || null);
 
         // 관리자 메뉴 순서 불러오기
@@ -110,17 +110,16 @@ export default function Sidebar() {
 
   // 관리자 메뉴 아이템 정의
   const allAdminMenuItems: Record<string, MenuItem> = {
-    "회원 조회": { label: "회원 조회", path: "/members", icon: getIcon("회원 조회") },
+    "회원조회": { label: "회원조회", path: "/members", icon: getIcon("회원조회") },
     연락처: { label: "연락처", path: "/contacts", icon: getIcon("연락처") },
     "생일 관리": { label: "생일 관리", path: "/birthdays", icon: getIcon("생일 관리") },
-    관리자페이지: { label: "관리자페이지", path: "/admin", icon: getIcon("관리자페이지") },
     "통계 대시보드": { label: "통계 대시보드", path: "/admin/stats", icon: getIcon("통계 대시보드") },
   };
 
   // 저장된 순서대로 메뉴 정렬
   const adminMenuItems: MenuItem[] = isAdmin
     ? (() => {
-        const defaultOrder = ["회원 조회", "연락처", "생일 관리", "관리자페이지", "통계 대시보드"];
+        const defaultOrder = ["회원조회", "연락처", "생일 관리", "통계 대시보드"];
         const order = adminMenuOrder || defaultOrder;
         
         // 순서대로 정렬하고, 순서에 없는 항목은 뒤에 추가
@@ -499,13 +498,15 @@ export default function Sidebar() {
               </div>
               {adminMenuItems.map((item, index) => {
                 const isActive = pathname === item.path;
-                const isDragging = draggedIndex === index;
+                const isItemDragging = draggedIndex === index;
                 const isDragOver = dragOverIndex === index;
-                const currentOrder = adminMenuOrder || ["회원 조회", "연락처", "생일 관리", "관리자페이지", "통계 대시보드"];
+                const currentOrder = adminMenuOrder || ["회원조회", "연락처", "생일 관리", "통계 대시보드"];
 
                 const handleDragStart = (e: React.DragEvent) => {
+                  setIsDragging(true);
                   setDraggedIndex(index);
                   e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", item.label);
                   // 드래그 이미지 숨기기
                   const img = new Image();
                   img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -514,32 +515,48 @@ export default function Sidebar() {
 
                 const handleDragOver = (e: React.DragEvent) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   e.dataTransfer.dropEffect = "move";
                   if (draggedIndex !== null && draggedIndex !== index) {
                     setDragOverIndex(index);
                   }
                 };
 
-                const handleDragLeave = () => {
+                const handleDragLeave = (e: React.DragEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // 관련된 요소로 이동한 경우는 무시
+                  const relatedTarget = e.relatedTarget as HTMLElement;
+                  if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+                    return;
+                  }
                   setDragOverIndex(null);
                 };
 
                 const handleDrop = async (e: React.DragEvent) => {
                   e.preventDefault();
-                  setDragOverIndex(null);
-
+                  e.stopPropagation();
+                  
                   if (draggedIndex === null || draggedIndex === index) {
                     setDraggedIndex(null);
+                    setDragOverIndex(null);
+                    setIsDragging(false);
                     return;
                   }
 
-                  const newOrder = [...currentOrder];
+                  // adminMenuItems는 이미 currentOrder에 따라 정렬되어 있으므로
+                  // 배열 인덱스를 직접 사용하여 순서 재구성
+                  const newOrder = adminMenuItems.map(item => item.label);
+                  
+                  // 드래그된 항목을 제거하고 드롭 위치에 삽입
                   const draggedItem = newOrder[draggedIndex];
                   newOrder.splice(draggedIndex, 1);
                   newOrder.splice(index, 0, draggedItem);
 
                   setAdminMenuOrder(newOrder);
                   setDraggedIndex(null);
+                  setDragOverIndex(null);
+                  setIsDragging(false);
 
                   // 데이터베이스에 저장
                   try {
@@ -548,7 +565,7 @@ export default function Sidebar() {
                     } = await supabase.auth.getUser();
                     if (!user) return;
 
-                    await supabase
+                    const { error } = await supabase
                       .from("app_settings")
                       .upsert(
                         {
@@ -561,40 +578,50 @@ export default function Sidebar() {
                           onConflict: "key",
                         }
                       );
+
+                    if (error) {
+                      console.error("메뉴 순서 저장 에러:", error);
+                    }
                   } catch (error) {
                     console.error("메뉴 순서 저장 에러:", error);
                   }
                 };
 
-                const handleClick = () => {
-                  // 드래그 중이 아닐 때만 페이지 이동
-                  if (draggedIndex === null) {
-                    router.push(item.path);
-                    if (isMobile) {
-                      setIsOpen(false);
-                    }
+                const handleDragEnd = () => {
+                  setDraggedIndex(null);
+                  setDragOverIndex(null);
+                  setIsDragging(false);
+                };
+
+                const handleClick = (e: React.MouseEvent) => {
+                  // 드래그가 발생했으면 클릭 무시
+                  if (isDragging) {
+                    e.preventDefault();
+                    return;
+                  }
+                  router.push(item.path);
+                  if (isMobile) {
+                    setIsOpen(false);
                   }
                 };
 
                 return (
                   <div
                     key={item.path}
-                    draggable
+                    draggable={true}
                     onDragStart={handleDragStart}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onDragEnd={() => {
-                      setDraggedIndex(null);
-                      setDragOverIndex(null);
-                    }}
+                    onDragEnd={handleDragEnd}
                     style={{
-                      opacity: isDragging ? 0.5 : 1,
-                      transform: isDragging ? "scale(0.95)" : "scale(1)",
+                      opacity: isItemDragging ? 0.5 : 1,
+                      transform: isItemDragging ? "scale(0.95)" : "scale(1)",
                       marginBottom: 3,
                       borderTop: isDragOver && draggedIndex !== null && draggedIndex < index ? "2px solid #10b981" : "none",
                       borderBottom: isDragOver && draggedIndex !== null && draggedIndex > index ? "2px solid #10b981" : "none",
                       transition: "all 0.2s ease",
+                      cursor: isDragging ? "grabbing" : "grab",
                     }}
                   >
                     <button
@@ -610,27 +637,30 @@ export default function Sidebar() {
                         fontFamily: "inherit",
                         border: "none",
                         borderRadius: 8,
-                        cursor: draggedIndex !== null ? "grabbing" : "grab",
+                        cursor: isDragging ? "grabbing" : "pointer",
                         transition: "all 0.15s ease",
                         display: "flex",
                         alignItems: "center",
                         gap: isMobile ? 10 : 12,
+                        userSelect: "none",
                       }}
-                      draggable
+                      onMouseDown={(e) => {
+                        // 드래그 시작을 위해 마우스 다운 이벤트는 허용
+                      }}
                       onMouseEnter={(e) => {
-                        if (!isActive && draggedIndex === null) {
+                        if (!isActive && !isDragging) {
                           e.currentTarget.style.background = "#374151";
                           e.currentTarget.style.color = "#ffffff";
                         }
                       }}
                       onMouseLeave={(e) => {
-                        if (!isActive && draggedIndex === null) {
+                        if (!isActive && !isDragging) {
                           e.currentTarget.style.background = "transparent";
                           e.currentTarget.style.color = "#d1d5db";
                         }
                       }}
                     >
-                      <span style={{ fontSize: isMobile ? 15 : 16, width: isMobile ? 18 : 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
+                      <span style={{ fontSize: isMobile ? 15 : 16, width: isMobile ? 18 : 20, textAlign: "center", flexShrink: 0, cursor: "inherit" }}>{item.icon}</span>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
                     </button>
                   </div>

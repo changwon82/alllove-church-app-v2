@@ -88,12 +88,12 @@ export default function DepartmentAttendancePage() {
         // 권한 확인
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role, attendance_permission, department")
+          .select("role, department")
           .eq("id", user.id)
           .maybeSingle();
 
         const isAdminUser = profile?.role === "admin";
-        const hasAttendancePermission = isAdminUser || profile?.attendance_permission === true;
+        const hasAttendancePermission = isAdminUser || !!profile?.department;
 
         if (!hasAttendancePermission) {
           router.push("/");
