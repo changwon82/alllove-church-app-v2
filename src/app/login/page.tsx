@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
@@ -74,19 +74,13 @@ export default function LoginPage() {
   return (
     <div
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        minHeight: "100vh",
         display: "flex",
-        justifyContent: "center",
+        flexDirection: "column",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        backdropFilter: "blur(4px)",
-        zIndex: 1000,
+        justifyContent: "center",
         padding: "20px",
-        animation: "fadeIn 0.2s ease",
+        background: "#f5f7fa",
       }}
     >
       <div
@@ -95,81 +89,72 @@ export default function LoginPage() {
           maxWidth: 400,
           backgroundColor: "#ffffff",
           borderRadius: 12,
-          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
           padding: "40px 32px",
+          textAlign: "center",
           border: "1px solid #e5e7eb",
-          position: "relative",
-          animation: "slideUp 0.3s ease",
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={() => router.push("/")}
+        <div
           style={{
-            position: "absolute",
-            top: 16,
-            right: 16,
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            border: "none",
-            background: "#f3f4f6",
-            color: "#6b7280",
-            fontSize: 20,
-            cursor: "pointer",
+            width: 80,
+            height: 80,
+            margin: "0 auto 24px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#e5e7eb";
-            e.currentTarget.style.color = "#374151";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "#f3f4f6";
-            e.currentTarget.style.color = "#6b7280";
           }}
         >
-          ×
-        </button>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div
+          <img
+            src="/alllove-logo.png"
+            alt="AllLove Church Community Logo"
             style={{
-              width: 80,
-              height: 80,
-              margin: "0 auto 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
             }}
-          >
-            <img
-              src="/alllove-logo.png"
-              alt="AllLove Church Community Logo"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-              }}
-            />
-          </div>
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: "#1f2937",
-              marginBottom: 8,
-            }}
-          >
-            로그인
-          </h1>
-          <p style={{ fontSize: 14, color: "#6b7280" }}>계정에 로그인하세요</p>
+          />
         </div>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <h1
+          style={{
+            fontSize: 24,
+            fontWeight: 700,
+            color: "#1f2937",
+            marginBottom: 4,
+          }}
+        >
+          다애공동체
+        </h1>
+        <p
+          style={{
+            fontSize: 14,
+            color: "#6b7280",
+            margin: 0,
+            marginBottom: 8,
+          }}
+        >
+          AllLove Church Community
+        </p>
+        <p
+          style={{
+            fontSize: 14,
+            color: "#6b7280",
+            marginBottom: 32,
+          }}
+        >
+          로그인하여 서비스를 이용하세요
+        </p>
+
+        <form 
+          name="login"
+          method="post"
+          onSubmit={handleSubmit} 
+          style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}
+        >
           <div>
             <label
+              htmlFor="email"
               style={{
                 fontSize: 13,
                 fontWeight: 500,
@@ -181,7 +166,10 @@ export default function LoginPage() {
               이메일
             </label>
             <input
+              id="email"
               type="email"
+              name="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{
@@ -198,6 +186,7 @@ export default function LoginPage() {
 
           <div>
             <label
+              htmlFor="password"
               style={{
                 fontSize: 13,
                 fontWeight: 500,
@@ -209,7 +198,10 @@ export default function LoginPage() {
               비밀번호
             </label>
             <input
+              id="password"
               type="password"
+              name="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{
@@ -269,7 +261,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: 24, marginBottom: 24 }}>
+        <div style={{ marginTop: 10 }}>
           <div
             style={{
               display: "flex",
@@ -283,111 +275,91 @@ export default function LoginPage() {
             <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
           </div>
 
-          <button
-            type="button"
-            onClick={handleKakaoLogin}
-            disabled={kakaoLoading || loading}
-            style={{
-              width: "100%",
-              padding: "12px 24px",
-              borderRadius: 6,
-              border: "none",
-              background: kakaoLoading || loading ? "#d1d5db" : "#FEE500",
-              color: "#000000",
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: kakaoLoading || loading ? "not-allowed" : "pointer",
-              transition: "all 0.2s ease",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onMouseEnter={(e) => {
-              if (!kakaoLoading && !loading) {
-                e.currentTarget.style.background = "#FDD835";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!kakaoLoading && !loading) {
-                e.currentTarget.style.background = "#FEE500";
-              }
-            }}
-          >
-            {kakaoLoading ? (
-              "연결 중..."
-            ) : (
-              <>
-                <span style={{ fontSize: 18 }}>💬</span>
-                카카오톡으로 시작하기{" "}
-                <span style={{ color: "#dc2626", fontSize: 12 }}>(준비 중)</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        <div style={{ marginTop: 24, textAlign: "center" }}>
-          <div style={{ marginBottom: 12 }}>
-            <Link
-              href="/forgot-password"
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              type="button"
+              onClick={handleKakaoLogin}
+              disabled={kakaoLoading || loading}
               style={{
-                fontSize: 13,
-                color: "#3b82f6",
-                fontWeight: 500,
-                textDecoration: "none",
+                width: "100%",
+                padding: "12px 24px",
+                borderRadius: 8,
+                border: "none",
+                background: kakaoLoading || loading ? "#d1d5db" : "#FEE500",
+                color: "#000000",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: kakaoLoading || loading ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+              onMouseEnter={(e) => {
+                if (!kakaoLoading && !loading) {
+                  e.currentTarget.style.background = "#FDD835";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!kakaoLoading && !loading) {
+                  e.currentTarget.style.background = "#FEE500";
+                }
               }}
             >
-              아이디 / 비밀번호 찾기
-            </Link>
-          </div>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: 0, marginBottom: 12 }}>
-            계정이 없으신가요?{" "}
-            <Link
-              href="/signup"
+              {kakaoLoading ? (
+                "연결 중..."
+              ) : (
+                <>
+                  <span style={{ fontSize: 18 }}>💬</span>
+                  카카오톡으로 시작하기{" "}
+                  <span style={{ color: "#dc2626", fontSize: 12 }}>(준비 중)</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => router.push("/signup")}
               style={{
-                color: "#3b82f6",
+                width: "100%",
+                padding: "12px 24px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                backgroundColor: "#ffffff",
+                color: "#374151",
+                fontSize: 14,
                 fontWeight: 600,
-                textDecoration: "none",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "#f9fafb";
+                e.currentTarget.style.borderColor = "#d1d5db";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "#ffffff";
+                e.currentTarget.style.borderColor = "#e5e7eb";
               }}
             >
               회원가입
-            </Link>
-          </p>
+            </button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, textAlign: "center" }}>
           <Link
-            href="/"
+            href="/forgot-password"
             style={{
               fontSize: 13,
-              color: "#6b7280",
+              color: "#3b82f6",
               fontWeight: 500,
               textDecoration: "none",
             }}
           >
-            ← 홈으로 돌아가기
+            아이디 / 비밀번호 찾기
           </Link>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
     </div>
   );
 }
