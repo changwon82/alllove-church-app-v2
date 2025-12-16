@@ -72,13 +72,6 @@ export default function MembersPage() {
       }
 
       setProfiles((data ?? []) as Profile[]);
-      
-      // 디버깅: birth 필드 확인
-      if (data && data.length > 0) {
-        console.log("로드된 프로필 샘플:", data[0]);
-        console.log("birth 필드 값:", data[0]?.birth);
-      }
-      
       setLoading(false);
     };
 

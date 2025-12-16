@@ -172,9 +172,6 @@ export default function AttendanceMembersPage() {
     }
 
     const allData = (membersData as any[]) || [];
-    console.log("로드된 멤버 데이터:", allData.length, "명");
-    console.log("첫 번째 멤버 샘플:", allData[0]);
-    
     // is_active 필드가 있는지 확인하고, 활성화/비활성화 분리
     let activeMembers: AttendanceMember[] = [];
     let inactiveMembersList: AttendanceMember[] = [];
@@ -184,22 +181,14 @@ export default function AttendanceMembersPage() {
       const sampleMember = allData[0] as any;
       const hasIsActiveField = sampleMember.is_active !== undefined;
       
-      console.log("is_active 필드 존재 여부:", hasIsActiveField, "샘플 데이터:", sampleMember);
-      
       if (hasIsActiveField) {
         // is_active가 명시적으로 false인 경우만 비활성으로 처리
         activeMembers = allData.filter((m: any) => m.is_active === true || m.is_active === null || m.is_active === undefined) as AttendanceMember[];
         inactiveMembersList = allData.filter((m: any) => m.is_active === false) as AttendanceMember[];
-        console.log("활성 멤버:", activeMembers.length, "명");
-        console.log("비활성 멤버:", inactiveMembersList.length, "명");
-        if (inactiveMembersList.length > 0) {
-          console.log("비활성 멤버 목록:", inactiveMembersList.map(m => ({ id: m.id, name: m.name, is_active: (m as any).is_active })));
-        }
       } else {
         // is_active 필드가 없으면 모두 활성으로 처리
         activeMembers = allData as AttendanceMember[];
         inactiveMembersList = [];
-        console.log("is_active 필드가 없어 모든 멤버를 활성으로 처리");
       }
     }
     

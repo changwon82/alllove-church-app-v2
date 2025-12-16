@@ -119,7 +119,7 @@ export default function EditMemberPage() {
         return;
       }
 
-      router.push("/admin");
+      router.push("/members");
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message ?? "저장 중 오류가 발생했습니다.");
@@ -369,7 +369,7 @@ export default function EditMemberPage() {
           <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
             <button
               type="button"
-              onClick={() => router.push("/admin")}
+              onClick={() => router.push("/members")}
               style={{
                 flex: 1,
                 padding: 12,

@@ -1074,11 +1074,6 @@ export default function AttendancePage() {
           table: "attendance_reports",
         },
         (payload) => {
-          console.log("📥 보고완료 기록 변경 감지:", payload);
-          console.log("📥 payload.eventType:", payload.eventType);
-          console.log("📥 payload.new:", payload.new);
-          console.log("📥 payload.old:", payload.old);
-          
           // 실시간으로 reports state 업데이트
           setReports((prev) => {
             const newReports = { ...prev };
@@ -1093,12 +1088,10 @@ export default function AttendancePage() {
               const oldData = payload.old as { department?: string; sunday_date?: string } | null;
               department = oldData?.department;
               sundayDate = oldData?.sunday_date;
-              console.log("🗑️ DELETE 이벤트 - department:", department, "sundayDate:", sundayDate, "payload.old:", payload.old);
               
               // payload.old가 없거나 필요한 데이터가 없는 경우
               // REPLICA IDENTITY FULL이 설정되지 않았을 수 있으므로, 전체 reports를 다시 로드
               if (!department || !sundayDate) {
-                console.warn("⚠️ DELETE 이벤트에서 department 또는 sundayDate를 찾을 수 없음. REPLICA IDENTITY FULL이 설정되어 있는지 확인하세요. 전체 데이터를 다시 로드합니다.", { payload });
                 
                 // 최근 8주간의 보고완료 기록을 다시 가져옴
                 const today = new Date();
@@ -1127,7 +1120,6 @@ export default function AttendancePage() {
                       reportsMap[report.department][report.sunday_date] = true;
                     });
                     setReports(reportsMap);
-                    console.log("✅ 보고완료 기록 재로드 완료:", reportsMap);
                   });
                 
                 // 즉시 업데이트하지 않고 재로드 대기
@@ -1138,11 +1130,9 @@ export default function AttendancePage() {
               const newData = payload.new as { department?: string; sunday_date?: string } | null;
               department = newData?.department;
               sundayDate = newData?.sunday_date;
-              console.log("✅ INSERT/UPDATE 이벤트 - department:", department, "sundayDate:", sundayDate);
             }
 
             if (!department || !sundayDate) {
-              console.warn("⚠️ department 또는 sundayDate가 없음:", { department, sundayDate, payload });
               return prev;
             }
 
@@ -1152,7 +1142,6 @@ export default function AttendancePage() {
                 newReports[department] = {};
               }
               newReports[department][sundayDate] = true;
-              console.log("✅ 보고완료 기록 추가/업데이트 완료:", { department, sundayDate });
             } else if (payload.eventType === "DELETE") {
               // 보고완료 삭제
               if (newReports[department]) {
@@ -1161,9 +1150,6 @@ export default function AttendancePage() {
                 if (Object.keys(newReports[department]).length === 0) {
                   delete newReports[department];
                 }
-                console.log("🗑️ 보고완료 기록 삭제 완료:", { department, sundayDate });
-              } else {
-                console.warn("⚠️ 삭제하려는 department가 reports에 없음:", department);
               }
             }
 
@@ -1171,12 +1157,11 @@ export default function AttendancePage() {
           });
         }
       )
-      .subscribe((status) => {
-        console.log("📡 보고완료 기록 채널 구독 상태:", status);
+      .subscribe(() => {
+        // 구독 상태는 필요시 확인
       });
 
     return () => {
-      console.log("🔌 보고완료 기록 채널 구독 해제");
       supabase.removeChannel(reportsChannel);
     };
   }, [hasPermission]);
@@ -1195,22 +1180,14 @@ export default function AttendancePage() {
           table: "attendance_records",
         },
         (payload) => {
-          console.log("📥 출석 기록 변경 감지:", payload);
-          console.log("📥 payload.eventType:", payload.eventType);
-          console.log("📥 payload.new:", payload.new);
-          console.log("📥 payload.old:", payload.old);
-          
           const newData = payload.new as { member_id?: string; date?: string; attended?: boolean; status_prayer?: string | null } | null;
           const oldData = payload.old as { member_id?: string; date?: string; attended?: boolean; status_prayer?: string | null } | null;
           const memberId = newData?.member_id || oldData?.member_id;
           const date = newData?.date || oldData?.date;
-
+          
           if (!memberId || !date) {
-            console.warn("⚠️ memberId 또는 date가 없음:", { memberId, date, payload });
             return;
           }
-          
-          console.log("📥 처리 중인 데이터:", { memberId, date, status_prayer: newData?.status_prayer });
 
           // 실시간으로 records state 업데이트
           setRecords((prev) => {
@@ -1222,7 +1199,6 @@ export default function AttendancePage() {
                 newRecords[memberId] = {};
               }
               newRecords[memberId][date] = newData?.attended || false;
-              console.log("✅ 출석 기록 업데이트:", { memberId, date, attended: newData?.attended });
             } else if (payload.eventType === "DELETE") {
               // 출석 기록 삭제
               if (newRecords[memberId]) {
@@ -1232,7 +1208,6 @@ export default function AttendancePage() {
                   delete newRecords[memberId];
                 }
               }
-              console.log("🗑️ 출석 기록 삭제:", { memberId, date });
             }
 
             return newRecords;
@@ -1252,7 +1227,6 @@ export default function AttendancePage() {
                     newStatusPrayers[memberId] = {};
                   }
                   newStatusPrayers[memberId][date] = newData.status_prayer;
-                  console.log("✅ 현황&기도제목 업데이트:", { memberId, date, status_prayer: newData.status_prayer, newData });
                 } else {
                   // status_prayer가 null이거나 빈 값인 경우 삭제
                   if (newStatusPrayers[memberId] && newStatusPrayers[memberId][date]) {
@@ -1261,10 +1235,7 @@ export default function AttendancePage() {
                       delete newStatusPrayers[memberId];
                     }
                   }
-                  console.log("🗑️ 현황&기도제목 삭제 (null/빈값):", { memberId, date, newData });
                 }
-              } else {
-                console.log("⚠️ status_prayer 필드가 payload에 없음:", { memberId, date, newData });
               }
             } else if (payload.eventType === "DELETE") {
               // 레코드 삭제 시 status_prayer도 삭제
@@ -1281,12 +1252,11 @@ export default function AttendancePage() {
           });
         }
       )
-      .subscribe((status) => {
-        console.log("📡 출석 기록 채널 구독 상태:", status);
+      .subscribe(() => {
+        // 구독 상태는 필요시 확인
       });
 
     return () => {
-      console.log("🔌 출석 기록 채널 구독 해제");
       supabase.removeChannel(recordsChannel);
     };
   }, [hasPermission]);
@@ -1416,7 +1386,6 @@ export default function AttendancePage() {
         return;
       }
 
-      console.log("💾 출석 기록 저장 시도:", { memberId, date, attended: newStatus });
       const { error } = await supabase.from("attendance_records").upsert(
         {
           member_id: memberId,
@@ -1429,12 +1398,11 @@ export default function AttendancePage() {
       );
 
       if (error) {
-        console.error("❌ 출석 기록 저장 에러:", error);
+        console.error("출석 기록 저장 에러:", error);
         alert("출석 기록 저장 중 오류가 발생했습니다.");
         return;
       }
 
-      console.log("✅ 출석 기록 저장 성공 (로컬 state 업데이트)");
       setRecords((prev) => ({
         ...prev,
         [memberId]: {
@@ -1720,7 +1688,6 @@ export default function AttendancePage() {
         return;
       }
 
-      console.log("💾 보고완료 저장 시도:", { department, sundayDate });
       const { error } = await supabase.from("attendance_reports").upsert(
         {
           department: department,
@@ -1741,7 +1708,7 @@ export default function AttendancePage() {
           code: error?.code || null,
         };
         
-        console.error("❌ 보고완료 저장 에러:", {
+        console.error("보고완료 저장 에러:", {
           ...errorInfo,
           department,
           sundayDate,
@@ -1761,7 +1728,6 @@ export default function AttendancePage() {
         return;
       }
 
-      console.log("✅ 보고완료 저장 성공 (로컬 state 업데이트)");
       // State 업데이트
       setReports((prev) => ({
         ...prev,
@@ -1812,7 +1778,6 @@ export default function AttendancePage() {
         return;
       }
 
-      console.log("💾 보고완료 해제 시도:", { department, sundayDate });
       const { error } = await supabase
         .from("attendance_reports")
         .delete()
@@ -1828,7 +1793,7 @@ export default function AttendancePage() {
           code: error?.code || null,
         };
         
-        console.error("❌ 보고완료 해제 에러:", {
+        console.error("보고완료 해제 에러:", {
           ...errorInfo,
           department,
           sundayDate,
@@ -1848,7 +1813,6 @@ export default function AttendancePage() {
         return;
       }
 
-      console.log("✅ 보고완료 해제 성공 (로컬 state 업데이트)");
       // State 업데이트
       setReports((prev) => {
         const newReports = { ...prev };

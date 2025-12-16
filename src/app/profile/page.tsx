@@ -248,7 +248,6 @@ export default function ProfilePage() {
         setBucketAvailable(true);
       } catch (err: any) {
         // 예외 발생 시 버킷이 없는 것으로 간주
-        console.log("버킷 확인 중 예외 발생 (버킷이 없을 수 있음):", err);
         setBucketAvailable(false);
       }
     };
@@ -279,7 +278,6 @@ export default function ProfilePage() {
         });
 
       if (error) {
-        console.log("스토리지 파일 목록 조회 실패:", error);
         return;
       }
 
@@ -291,7 +289,6 @@ export default function ProfilePage() {
       setStorageFileCount(userFiles.length);
       setStorageFiles(userFiles);
     } catch (err) {
-      console.log("스토리지 파일 확인 중 에러:", err);
     }
   };
 
@@ -357,8 +354,6 @@ export default function ProfilePage() {
 
     try {
       const filePath = `avatars/${pendingDeleteFileName}`;
-      console.log("삭제할 파일 경로:", filePath);
-      console.log("현재 사용자 ID:", profile.id);
       
       // 파일명이 현재 사용자 ID로 시작하는지 확인
       if (!pendingDeleteFileName.startsWith(`${profile.id}-`)) {
@@ -378,7 +373,6 @@ export default function ProfilePage() {
         .from("profile-images")
         .remove([filePath]);
 
-      console.log("삭제 결과:", { data, error: deleteError });
 
       if (deleteError) {
         console.error("파일 삭제 에러 상세:", deleteError);
@@ -415,7 +409,6 @@ export default function ProfilePage() {
       // 파일 목록 새로고침
       await checkStorageFiles();
       
-      console.log("파일 삭제 완료");
     } catch (err: any) {
       console.error("파일 삭제 에러:", err);
       setErrorMsg(err.message || "파일 삭제 중 오류가 발생했습니다.");
@@ -590,7 +583,6 @@ export default function ProfilePage() {
           }
         } catch (err) {
           // 기존 파일 삭제 실패해도 새 파일 업로드는 계속 진행
-          console.log("기존 파일 삭제 중 에러 (무시):", err);
         }
       }
 
