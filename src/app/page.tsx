@@ -145,6 +145,30 @@ export default function Home() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button
+              onClick={() => router.push("/login")}
+              style={{
+                width: "100%",
+                padding: "12px 24px",
+                borderRadius: 8,
+                border: "none",
+                background: "#3b82f6",
+                color: "#ffffff",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#2563eb";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#3b82f6";
+              }}
+            >
+              로그인
+            </button>
+
+            <button
               onClick={async () => {
                 setKakaoLoading(true);
                 try {
@@ -202,46 +226,10 @@ export default function Home() {
               ) : (
                 <>
                   <span style={{ fontSize: 18 }}>💬</span>
-                  카카오톡으로 시작하기
+                  카카오톡으로 시작하기{" "}
+                  <span style={{ color: "#dc2626", fontSize: 12 }}>(준비 중)</span>
                 </>
               )}
-            </button>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                margin: "16px 0",
-              }}
-            >
-              <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-              <span style={{ fontSize: 12, color: "#9ca3af" }}>또는</span>
-              <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-            </div>
-
-            <button
-              onClick={() => router.push("/login")}
-              style={{
-                width: "100%",
-                padding: "12px 24px",
-                borderRadius: 8,
-                border: "none",
-                background: "#3b82f6",
-                color: "#ffffff",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "#2563eb";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#3b82f6";
-              }}
-            >
-              로그인
             </button>
 
             <button

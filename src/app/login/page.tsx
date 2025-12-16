@@ -319,7 +319,8 @@ export default function LoginPage() {
             ) : (
               <>
                 <span style={{ fontSize: 18 }}>💬</span>
-                카카오톡으로 시작하기
+                카카오톡으로 시작하기{" "}
+                <span style={{ color: "#dc2626", fontSize: 12 }}>(준비 중)</span>
               </>
             )}
           </button>
