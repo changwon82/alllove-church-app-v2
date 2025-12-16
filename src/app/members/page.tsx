@@ -1104,9 +1104,7 @@ export default function MembersPage() {
                         const dateStr = p.birth;
                         let date: Date;
                         
-                        if (dateStr instanceof Date) {
-                          date = dateStr;
-                        } else if (typeof dateStr === 'string') {
+                        if (typeof dateStr === 'string') {
                           date = new Date(dateStr);
                         } else {
                           return "-";
