@@ -75,13 +75,16 @@ export async function POST(request: NextRequest) {
     // 중복 전화번호 확인
     const { data: existingProfile } = await supabaseAdmin
       .from("profiles")
-      .select("id, email")
+      .select("id, email, full_name")
       .or(`phone.eq.${formattedPhone},phone.eq.${cleanedPhone}`)
       .maybeSingle();
 
     if (existingProfile) {
       return NextResponse.json(
-        { success: false, message: "이미 가입된 전화번호입니다." },
+        { 
+          success: false, 
+          message: `이미 가입된 전화번호입니다.\n\n이 전화번호로 가입된 계정이 있습니다.\n간편로그인을 사용하여 로그인해주세요.` 
+        },
         { status: 400 }
       );
     }
