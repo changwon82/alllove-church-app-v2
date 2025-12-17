@@ -17,6 +17,7 @@ export default function SignupPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [kakaoLoading, setKakaoLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -110,7 +111,9 @@ export default function SignupPage() {
           .eq("id", user.id);
       }
 
-      router.push("/login");
+      // 회원가입 성공 - 성공 화면 표시
+      setShowSuccess(true);
+      setLoading(false);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message ?? "알 수 없는 오류가 발생했습니다.");
@@ -209,35 +212,99 @@ export default function SignupPage() {
         >
           ×
         </button>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "#3b82f6",
-              margin: "0 auto 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <span style={{ fontSize: 36, color: "#ffffff" }}>✨</span>
+        {!showSuccess && (
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "#3b82f6",
+                margin: "0 auto 24px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ fontSize: 36, color: "#ffffff" }}>✨</span>
+            </div>
+            <h1
+              style={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: "#1f2937",
+                marginBottom: 8,
+              }}
+            >
+              회원가입
+            </h1>
+            <p style={{ fontSize: 14, color: "#6b7280" }}>새 계정을 만들어 시작하세요</p>
           </div>
-          <h1
-            style={{
-              fontSize: 24,
-              fontWeight: 700,
-              color: "#1f2937",
-              marginBottom: 8,
-            }}
-          >
-            회원가입
-          </h1>
-          <p style={{ fontSize: 14, color: "#6b7280" }}>새 계정을 만들어 시작하세요</p>
-        </div>
+        )}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {showSuccess ? (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: "50%",
+                background: "#10b981",
+                margin: "0 auto 24px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ fontSize: 36, color: "#ffffff" }}>✓</span>
+            </div>
+            <h2
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: "#1f2937",
+                marginBottom: 12,
+              }}
+            >
+              회원가입이 완료되었습니다!
+            </h2>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#6b7280",
+                marginBottom: 32,
+                lineHeight: 1.6,
+              }}
+            >
+              새로 만든 계정으로 로그인해주세요.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              style={{
+                width: "100%",
+                padding: "12px 24px",
+                borderRadius: 6,
+                border: "none",
+                background: "#3b82f6",
+                color: "#ffffff",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#2563eb";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#3b82f6";
+              }}
+            >
+              확인
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label
               style={{
@@ -463,7 +530,9 @@ export default function SignupPage() {
             {loading ? "처리 중..." : "회원가입"}
           </button>
         </form>
+        )}
 
+        {!showSuccess && (
         <div style={{ marginTop: 24, textAlign: "center" }}>
           <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
             이미 계정이 있으신가요?{" "}
@@ -479,6 +548,7 @@ export default function SignupPage() {
             </Link>
           </p>
         </div>
+        )}
       </div>
 
       <style jsx>{`

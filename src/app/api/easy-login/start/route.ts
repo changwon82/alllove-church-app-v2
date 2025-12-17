@@ -132,19 +132,20 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // otp_requests 테이블에 저장
+    // 참고: otp_requests 테이블 스키마는 마이그레이션 SQL 참조
     const { error: otpError } = await supabaseAdmin
       .from("otp_requests")
       .insert({
-      phone: profile.phone,
-      purpose: "easy_login",
-      otp_hash: otpHash,
-      expires_at: expiresAt,
-      user_id: profile.id,
-      ip: ip,
-      user_agent: request.headers.get("user-agent") || "",
-      attempts: 0,
-      used: false,
-    });
+        phone: profile.phone,
+        purpose: "easy_login",
+        otp_hash: otpHash,
+        expires_at: expiresAt,
+        user_id: profile.id,
+        ip: ip,
+        user_agent: request.headers.get("user-agent") || "",
+        attempts: 0,
+        used: false,
+      });
 
     if (otpError) {
       console.error("OTP 저장 에러:", otpError);

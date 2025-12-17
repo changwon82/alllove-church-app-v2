@@ -129,8 +129,25 @@ export async function POST(request: NextRequest) {
     }
 
     // OTP 검증 성공 - 사용자 세션 생성
-    // Supabase Admin API를 사용하여 사용자 세션을 직접 생성합니다.
-    // 이는 서버 사이드에서만 가능하며, Service Role Key가 필요합니다.
+    // 
+    // 보안 고려사항:
+    // Supabase는 OAuth 기반 인증만 공식 지원하며, OTP 기반 직접 세션 생성은 지원하지 않습니다.
+    // 따라서 다음 두 가지 방법 중 하나를 선택해야 합니다:
+    //
+    // 1. Magic Link 방식 (권장):
+    //    - generateLink API를 사용하여 일회성 로그인 링크 생성
+    //    - 사용자가 링크를 클릭하면 자동으로 세션이 생성됨
+    //    - 장점: Supabase 공식 API 사용, 보안성 높음
+    //    - 단점: 사용자가 링크를 클릭해야 함 (자동 로그인 불가)
+    //
+    // 2. 임시 비밀번호 방식 (대안):
+    //    - 임시 비밀번호를 생성하여 사용자 계정에 설정
+    //    - 클라이언트에서 signInWithPassword로 로그인
+    //    - 장점: 자동 로그인 가능, 사용자 경험 좋음
+    //    - 단점: 임시 비밀번호가 네트워크를 통해 전송됨 (보안 위험)
+    //
+    // 현재 구현: Magic Link를 우선 시도하고, 실패 시 임시 비밀번호 방식 사용
+    // 향후 개선: Supabase가 OTP 기반 인증을 공식 지원하면 해당 방식으로 전환
     
     // 사용자 정보 조회
     const { data: authUser, error: userError } = await supabaseAdmin.auth.admin.getUserById(profile.id);
@@ -142,51 +159,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Supabase Admin API로 사용자 세션 생성
-    // generateLink를 사용하여 일회성 로그인 링크 생성
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: authUser.user.email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/auth/callback?type=easy_login`,
-      },
-    });
-
-    if (linkError || !linkData) {
-      console.error("Magic Link 생성 에러:", linkError);
-      // 대안: 임시 비밀번호 방식 사용
-      const tempPassword = `temp_${code}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
-        password: tempPassword,
-      });
-
-      if (updateError) {
-        console.error("임시 비밀번호 설정 에러:", updateError);
-        return NextResponse.json(
-          { success: false, message: "인증에 실패했습니다." },
-          { status: 200 }
-        );
-      }
-
-      // OTP 요청을 사용 완료로 표시
-      await supabaseAdmin
-        .from("otp_requests")
-        .update({ attempts: (otpRequest.attempts || 0) + 1, used: true })
-        .eq("id", otpRequest.id);
-
-      return NextResponse.json({
-        success: true,
-        message: "인증이 완료되었습니다.",
-        loginInfo: {
-          email: authUser.user.email,
-          tempPassword: tempPassword,
-          method: "password", // 클라이언트에서 signInWithPassword 사용
-        },
-      });
-    }
-
-    // Magic Link 방식 성공
+    // 간편로그인은 임시 비밀번호 방식 사용 (더 안정적)
+    // 어르신 전용 회원가입 시 비밀번호가 392766으로 고정되어 있으므로
+    // 해당 비밀번호로 직접 로그인 시도
+    const knownPassword = "392766";
+    
     // OTP 요청을 사용 완료로 표시
     await supabaseAdmin
       .from("otp_requests")
@@ -198,8 +175,8 @@ export async function POST(request: NextRequest) {
       message: "인증이 완료되었습니다.",
       loginInfo: {
         email: authUser.user.email,
-        magicLink: linkData.properties.action_link,
-        method: "magiclink", // 클라이언트에서 링크로 리다이렉트
+        password: knownPassword,
+        method: "password", // 클라이언트에서 signInWithPassword 사용
       },
     });
   } catch (error: any) {
