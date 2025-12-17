@@ -90,29 +90,43 @@ export async function POST(request: NextRequest) {
     }
 
     // 이메일 자동 생성 (alllove1@church.com, alllove2@church.com ...)
+    // profiles 테이블에서 가장 큰 번호를 찾아서 +1
+    const { data: existingProfiles } = await supabaseAdmin
+      .from("profiles")
+      .select("email")
+      .like("email", "alllove%@church.com")
+      .order("email", { ascending: false })
+      .limit(100);
+
     let emailNumber = 1;
+    
+    if (existingProfiles && existingProfiles.length > 0) {
+      // 기존 이메일에서 가장 큰 번호 추출
+      const emailNumbers = existingProfiles
+        .map((p) => {
+          const match = p.email?.match(/alllove(\d+)@church\.com/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter((n) => !isNaN(n) && n > 0);
+      
+      if (emailNumbers.length > 0) {
+        emailNumber = Math.max(...emailNumbers) + 1;
+      }
+    }
+
     let newEmail = `alllove${emailNumber}@church.com`;
     
-    // 사용 가능한 이메일 찾기
-    while (true) {
-      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-      const emailExists = existingUser?.users?.some(
-        (u) => u.email === newEmail
-      );
+    // 생성된 이메일이 실제로 사용 가능한지 최종 확인
+    const { data: finalCheck } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("email", newEmail)
+      .maybeSingle();
 
-      if (!emailExists) {
-        break;
-      }
+    // 만약 중복이면 다음 번호로
+    if (finalCheck) {
       emailNumber++;
       newEmail = `alllove${emailNumber}@church.com`;
-
-      // 무한 루프 방지
-      if (emailNumber > 10000) {
-        return NextResponse.json(
-          { success: false, message: "회원가입에 실패했습니다. 관리자에게 문의해주세요." },
-          { status: 500 }
-        );
-      }
     }
 
     // 임시 비밀번호 생성 (고정값: 392766)
