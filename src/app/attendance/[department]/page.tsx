@@ -26,8 +26,8 @@ const departments = ["유치부", "유초등부", "청소년부", "청년부"];
 
 export default function DepartmentAttendancePage() {
   const router = useRouter();
-  const params = useParams();
-  const department = params.department as string;
+  // React DevTools enumeration 방지: useParams를 즉시 구조 분해하여 params 객체를 변수에 저장하지 않음
+  const department = ((useParams() as { department?: string })?.department as string) || "";
 
   const [loading, setLoading] = useState(true);
   const [hasPermission, setHasPermission] = useState(false);

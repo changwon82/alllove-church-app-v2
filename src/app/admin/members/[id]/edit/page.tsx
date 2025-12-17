@@ -19,8 +19,8 @@ type Profile = {
 
 export default function EditMemberPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
+  // React DevTools enumeration 방지: useParams를 즉시 구조 분해하여 params 객체를 변수에 저장하지 않음
+  const id = ((useParams() as { id?: string })?.id as string) || "";
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState("");

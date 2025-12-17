@@ -11,6 +11,9 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [birth, setBirth] = useState("");
+  const [gender, setGender] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [kakaoLoading, setKakaoLoading] = useState(false);
@@ -73,6 +76,9 @@ export default function SignupPage() {
           id: user.id,
           email: user.email,
           full_name: name.trim(),
+          phone: phone.trim() || null,
+          birth: birth || null,
+          gender: gender || null,
           role: "member",
           approved: false,
         });
@@ -92,10 +98,15 @@ export default function SignupPage() {
           return;
         }
       } else {
-        // 프로필이 이미 있으면 이름만 업데이트
+        // 프로필이 이미 있으면 업데이트
         await supabase
           .from("profiles")
-          .update({ full_name: name.trim() })
+          .update({
+            full_name: name.trim(),
+            phone: phone.trim() || null,
+            birth: birth || null,
+            gender: gender || null,
+          })
           .eq("id", user.id);
       }
 
@@ -271,6 +282,7 @@ export default function SignupPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="실제 사용하는 이메일을 입력해 주세요"
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -313,6 +325,98 @@ export default function SignupPage() {
             <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 6, margin: 0 }}>
               최소 6자 이상 입력해주세요
             </p>
+          </div>
+
+          <div>
+            <label
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: "#374151",
+                display: "block",
+                marginBottom: 6,
+                textAlign: "left",
+              }}
+            >
+              전화번호
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-1234-5678"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 6,
+                border: "1px solid #e5e7eb",
+                fontSize: 14,
+                transition: "all 0.2s ease",
+              }}
+            />
+          </div>
+
+          {/* 생년월일과 성별을 한 줄에 배치 */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#374151",
+                  display: "block",
+                  marginBottom: 6,
+                  textAlign: "left",
+                }}
+              >
+                생년월일
+              </label>
+              <input
+                type="date"
+                value={birth}
+                onChange={(e) => setBirth(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 14,
+                  transition: "all 0.2s ease",
+                }}
+              />
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: "#374151",
+                  display: "block",
+                  marginBottom: 6,
+                  textAlign: "left",
+                }}
+              >
+                성별
+              </label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #e5e7eb",
+                  fontSize: 14,
+                  transition: "all 0.2s ease",
+                  backgroundColor: "#ffffff",
+                }}
+              >
+                <option value="">선택하세요</option>
+                <option value="남">남</option>
+                <option value="여">여</option>
+              </select>
+            </div>
           </div>
 
           {errorMsg && (
@@ -360,65 +464,8 @@ export default function SignupPage() {
           </button>
         </form>
 
-        <div style={{ marginTop: 24, marginBottom: 24 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 16,
-            }}
-          >
-            <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-            <span style={{ fontSize: 12, color: "#9ca3af" }}>또는</span>
-            <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleKakaoLogin}
-            disabled={kakaoLoading || loading}
-            style={{
-              width: "100%",
-              padding: "12px 24px",
-              borderRadius: 6,
-              border: "none",
-              background: kakaoLoading || loading ? "#d1d5db" : "#FEE500",
-              color: "#000000",
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: kakaoLoading || loading ? "not-allowed" : "pointer",
-              transition: "all 0.2s ease",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-            onMouseEnter={(e) => {
-              if (!kakaoLoading && !loading) {
-                e.currentTarget.style.background = "#FDD835";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!kakaoLoading && !loading) {
-                e.currentTarget.style.background = "#FEE500";
-              }
-            }}
-          >
-            {kakaoLoading ? (
-              "연결 중..."
-            ) : (
-              <>
-                <span style={{ fontSize: 18 }}>💬</span>
-                카카오톡으로 시작하기{" "}
-                <span style={{ color: "#dc2626", fontSize: 12 }}>(준비 중)</span>
-              </>
-            )}
-          </button>
-        </div>
-
         <div style={{ marginTop: 24, textAlign: "center" }}>
-          <p style={{ fontSize: 13, color: "#6b7280", margin: 0, marginBottom: 12 }}>
+          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
             이미 계정이 있으신가요?{" "}
             <Link
               href="/login"
@@ -431,17 +478,6 @@ export default function SignupPage() {
               로그인
             </Link>
           </p>
-          <Link
-            href="/"
-            style={{
-              fontSize: 13,
-              color: "#6b7280",
-              fontWeight: 500,
-              textDecoration: "none",
-            }}
-          >
-            ← 홈으로 돌아가기
-          </Link>
         </div>
       </div>
 

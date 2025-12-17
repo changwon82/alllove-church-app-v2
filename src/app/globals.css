@@ -111,3 +111,9 @@ button:active:not(:disabled) {
     transform: translateY(0);
   }
 }
+
+/* Next.js 개발 도구 포털 스타일 오버라이드 */
+nextjs-portal {
+  left: unset !important;
+  top: unset !important;
+}

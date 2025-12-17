@@ -5,13 +5,29 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 
+type LoginTab = "email" | "oauth" | "easy";
+
 export default function LoginPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<LoginTab>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [kakaoLoading, setKakaoLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  // 자동로그인 설정 불러오기
+  useEffect(() => {
+    const savedRememberMe = localStorage.getItem("rememberMe");
+    const savedEmail = localStorage.getItem("rememberedEmail");
+    
+    if (savedRememberMe === "true" && savedEmail) {
+      setRememberMe(true);
+      setEmail(savedEmail);
+    }
+  }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,19 +42,29 @@ export default function LoginPage() {
 
       if (error) {
         setErrorMsg(error.message);
+        setLoading(false);
         return;
       }
 
       if (!data.session) {
         setErrorMsg("로그인 세션이 생성되지 않았습니다.");
+        setLoading(false);
         return;
+      }
+
+      // 자동로그인 설정 저장
+      if (rememberMe) {
+        localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("rememberedEmail", email.trim());
+      } else {
+        localStorage.removeItem("rememberMe");
+        localStorage.removeItem("rememberedEmail");
       }
 
       router.push("/");
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message ?? "로그인 중 오류가 발생했습니다.");
-    } finally {
       setLoading(false);
     }
   };
@@ -70,6 +96,31 @@ export default function LoginPage() {
       setKakaoLoading(false);
     }
   };
+
+  const handleGoogleLogin = async () => {
+    setErrorMsg(null);
+    setGoogleLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        setErrorMsg(error.message || "구글 로그인에 실패했습니다.");
+        setGoogleLoading(false);
+      }
+      // 성공 시 자동으로 리다이렉트되므로 여기서는 아무것도 하지 않음
+    } catch (err: any) {
+      console.error("구글 로그인 에러:", err);
+      setErrorMsg(err.message ?? "구글 로그인 중 오류가 발생했습니다.");
+      setGoogleLoading(false);
+    }
+  };
+
 
   return (
     <div
@@ -140,17 +191,89 @@ export default function LoginPage() {
           style={{
             fontSize: 14,
             color: "#6b7280",
-            marginBottom: 32,
+            marginBottom: 24,
           }}
         >
           로그인하여 서비스를 이용하세요
         </p>
 
-        <form 
+        {/* 로그인 방식 탭 */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 24,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setActiveTab("email")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              border: "none",
+              background: "transparent",
+              color: activeTab === "email" ? "#3b82f6" : "#6b7280",
+              fontWeight: activeTab === "email" ? 600 : 400,
+              fontSize: 14,
+              cursor: "pointer",
+              borderBottom: activeTab === "email" ? "2px solid #3b82f6" : "2px solid transparent",
+              marginBottom: "-1px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            이메일 로그인
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("oauth")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              border: "none",
+              background: "transparent",
+              color: activeTab === "oauth" ? "#3b82f6" : "#6b7280",
+              fontWeight: activeTab === "oauth" ? 600 : 400,
+              fontSize: 14,
+              cursor: "pointer",
+              borderBottom: activeTab === "oauth" ? "2px solid #3b82f6" : "2px solid transparent",
+              marginBottom: "-1px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            소셜 로그인
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("easy")}
+            style={{
+              flex: 1,
+              padding: "12px",
+              border: "none",
+              background: "transparent",
+              color: activeTab === "easy" ? "#3b82f6" : "#6b7280",
+              fontWeight: activeTab === "easy" ? 600 : 400,
+              fontSize: 14,
+              cursor: "pointer",
+              borderBottom: activeTab === "easy" ? "2px solid #3b82f6" : "2px solid transparent",
+              marginBottom: "-1px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            어르신 간편로그인
+          </button>
+        </div>
+
+        {/* 탭 콘텐츠 영역 - 최소 높이 설정으로 레이아웃 고정 */}
+        <div style={{ minHeight: "280px" }}>
+        {activeTab === "email" && (
+          <>
+          <form 
           name="login"
           method="post"
           onSubmit={handleSubmit} 
-          style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}
+          style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 8 }}
         >
           <div>
             <label
@@ -161,6 +284,7 @@ export default function LoginPage() {
                 color: "#374151",
                 display: "block",
                 marginBottom: 6,
+                textAlign: "left",
               }}
             >
               이메일
@@ -193,6 +317,7 @@ export default function LoginPage() {
                 color: "#374151",
                 display: "block",
                 marginBottom: 6,
+                textAlign: "left",
               }}
             >
               비밀번호
@@ -259,23 +384,150 @@ export default function LoginPage() {
           >
             {loading ? "로그인 중..." : "로그인"}
           </button>
+
+          <div style={{ display: "flex", alignItems: "center", marginTop: 8 }}>
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              style={{
+                width: 16,
+                height: 16,
+                cursor: "pointer",
+                marginRight: 8,
+              }}
+            />
+            <label
+              htmlFor="rememberMe"
+              style={{
+                fontSize: 13,
+                color: "#6b7280",
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+            >
+              자동로그인
+            </label>
+          </div>
         </form>
 
-        <div style={{ marginTop: 10 }}>
+        {/* 구분선 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            margin: "16px 0",
+            gap: 12,
+          }}
+        >
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 16,
+              flex: 1,
+              height: 1,
+              backgroundColor: "#e5e7eb",
+            }}
+          />
+          <span
+            style={{
+              fontSize: 12,
+              color: "#9ca3af",
             }}
           >
-            <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-            <span style={{ fontSize: 12, color: "#9ca3af" }}>또는</span>
-            <div style={{ flex: 1, height: 1, backgroundColor: "#e5e7eb" }} />
-          </div>
+            또는
+          </span>
+          <div
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: "#e5e7eb",
+            }}
+          />
+        </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* 회원가입 버튼 */}
+        <button
+          type="button"
+          onClick={() => router.push("/signup")}
+          style={{
+            width: "100%",
+            padding: "12px 24px",
+            borderRadius: 6,
+            border: "1px solid #e5e7eb",
+            backgroundColor: "#ffffff",
+            color: "#374151",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "#3b82f6";
+            e.currentTarget.style.color = "#3b82f6";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "#e5e7eb";
+            e.currentTarget.style.color = "#374151";
+          }}
+        >
+          회원가입
+        </button>
+
+        {/* 아이디/비밀번호 찾기 */}
+        <div style={{ marginTop: 16, textAlign: "center" }}>
+          <Link
+            href="/forgot-password"
+            style={{
+              fontSize: 13,
+              color: "#3b82f6",
+              fontWeight: 500,
+              textDecoration: "none",
+            }}
+          >
+            아이디 / 비밀번호 찾기
+          </Link>
+        </div>
+        </>
+        )}
+
+        {activeTab === "oauth" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={googleLoading || loading}
+              style={{
+                width: "100%",
+                padding: "12px 24px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: googleLoading || loading ? "#d1d5db" : "#ffffff",
+                color: "#374151",
+                fontWeight: 600,
+                fontSize: 14,
+                cursor: googleLoading || loading ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              {googleLoading ? "연결 중..." : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                    <g fill="none" fillRule="evenodd">
+                      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+                      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/>
+                      <path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.348 6.173 0 7.55 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                    </g>
+                  </svg>
+                  구글로 로그인
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={handleKakaoLogin}
@@ -296,70 +548,48 @@ export default function LoginPage() {
                 justifyContent: "center",
                 gap: 8,
               }}
-              onMouseEnter={(e) => {
-                if (!kakaoLoading && !loading) {
-                  e.currentTarget.style.background = "#FDD835";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!kakaoLoading && !loading) {
-                  e.currentTarget.style.background = "#FEE500";
-                }
-              }}
             >
-              {kakaoLoading ? (
-                "연결 중..."
-              ) : (
+              {kakaoLoading ? "연결 중..." : (
                 <>
-                  <span style={{ fontSize: 18 }}>💬</span>
-                  카카오톡으로 시작하기{" "}
-                  <span style={{ color: "#dc2626", fontSize: 12 }}>(준비 중)</span>
+                  <img 
+                    src="/kakao-icon.png" 
+                    alt="카카오톡" 
+                    style={{ width: 18, height: 18, objectFit: "contain" }}
+                  />
+                  카카오톡으로 로그인
                 </>
               )}
             </button>
+          </div>
+        )}
 
+        {activeTab === "easy" && (
+          <div style={{ textAlign: "center", padding: "20px 0", marginBottom: 24 }}>
+            <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>
+              어르신 간편로그인 페이지로 이동합니다
+            </p>
             <button
-              onClick={() => router.push("/signup")}
+              type="button"
+              onClick={() => router.push("/easy-login")}
               style={{
-                width: "100%",
                 padding: "12px 24px",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                backgroundColor: "#ffffff",
-                color: "#374151",
-                fontSize: 14,
+                borderRadius: 6,
+                border: "none",
+                background: "#3b82f6",
+                color: "#ffffff",
                 fontWeight: 600,
+                fontSize: 14,
                 cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#f9fafb";
-                e.currentTarget.style.borderColor = "#d1d5db";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "#ffffff";
-                e.currentTarget.style.borderColor = "#e5e7eb";
               }}
             >
-              회원가입
+              간편로그인 페이지로 이동
             </button>
           </div>
-        </div>
+        )}
 
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <Link
-            href="/forgot-password"
-            style={{
-              fontSize: 13,
-              color: "#3b82f6",
-              fontWeight: 500,
-              textDecoration: "none",
-            }}
-          >
-            아이디 / 비밀번호 찾기
-          </Link>
         </div>
       </div>
+
     </div>
   );
 }

@@ -10,7 +10,7 @@ type MenuItem = {
   icon: string;
 };
 
-const getIcon = (label: string) => {
+  const getIcon = (label: string) => {
   const icons: Record<string, string> = {
     홈: "🏠",
     "내 프로필": "👤",
